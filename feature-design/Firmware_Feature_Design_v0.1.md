@@ -193,7 +193,24 @@ Local firmware-owned state:
 - unreconciled terminal result
 - pending OTA slot metadata
 
-## 7. Failure Handling And Observability
+## 7. Success Metrics And Instrumentation
+
+| Metric | Why it matters | Source | Owner |
+| --- | --- | --- | --- |
+| Valid oral measurement completion rate | confirms oral sessions reliably reach a terminal result after start | `session.start` and `session.result` telemetry tagged by mode | Firmware |
+| Valid fat measurement completion rate | confirms repeated-reading flow can complete without device-side instability | `session.start`, `session.finish`, and `session.result` telemetry tagged by mode | Firmware |
+| Invalid-sample rate by mode | detects sensor gating or algorithm-tuning issues before they surface as broad user frustration | `session.event` records with quality and failure codes | Firmware |
+| Disconnect recovery replay success rate | measures whether journal persistence and resume query behavior actually recover completed sessions | flash journal replay counter plus `session.resume.query` outcomes | Firmware |
+| Low-power false-entry rate during active sessions | catches regressions where power management interrupts legitimate measurements | power manager logs correlated with active `session_id` | Firmware |
+| OTA transport failure rate | measures update stability before wider rollout | `ota.*` progress and failure events with reason codes | Firmware |
+
+Instrumentation notes:
+
+- every session-scoped event should include `session_id`, mode, firmware version, and algorithm version
+- failure and quality events should include a stable reason code rather than only free-form text
+- low-power and OTA metrics should be aggregated by hardware revision to isolate board-specific issues
+
+## 8. Failure Handling And Observability
 
 Required failure classes:
 
@@ -213,7 +230,7 @@ Required observability:
 - low-power enter/exit count
 - OTA failure reason
 
-## 8. Verification Strategy
+## 9. Verification Strategy
 
 - HIL tests for oral and fat state machines
 - disconnect/reconnect replay tests
@@ -221,7 +238,7 @@ Required observability:
 - low-power hysteresis bench tests
 - OTA resume and rollback tests
 
-## 9. Planning And Coding Handoff
+## 10. Planning And Coding Handoff
 
 | Task | Objective | Acceptance criteria |
 | --- | --- | --- |

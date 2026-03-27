@@ -1,6 +1,6 @@
 ---
 name: feature-design
-description: design implementation-ready software features from a prd and architecture specification. use when a user wants per-feature design packages for firmware, mobile app, and backend, including feature scope, responsibilities, state machines, sequence diagrams, data flow, contracts, error handling, verification, and task breakdowns that can be handed to planning or coding skills.
+description: design implementation-ready software features from a prd and architecture specification. use when a user wants per-feature design packages for firmware, mobile app, and backend, including feature scope, responsibilities, state machines, sequence diagrams, data flow, contracts, success metrics, error handling, verification, and task breakdowns that can be handed to planning or coding skills.
 ---
 
 # Feature Design
@@ -58,9 +58,10 @@ Default section structure for each domain document:
 7. Sequence diagrams for primary and failure flows involving this domain
 8. Data flow and persistence model for this domain
 9. Contract impacts for this domain
-10. Error handling, recovery, and observability
-11. Verification strategy
-12. Delivery breakdown for planning and coding handoff
+10. Success metrics and instrumentation
+11. Error handling, recovery, and observability
+12. Verification strategy
+13. Delivery breakdown for planning and coding handoff
 
 Prefer Mermaid for diagrams unless the user requests another format.
 
@@ -160,6 +161,28 @@ For each contract, include:
 
 ### 5. Make The Design Implementation-Ready
 
+### 5. Define Success Metrics
+
+For each domain design, include success metrics that make feature rollout and post-release evaluation concrete.
+
+At minimum, define:
+
+- user or business outcome metrics when the domain materially influences them
+- operational metrics such as success rate, latency, retry rate, failure rate, or recovery rate
+- guardrail metrics that catch regressions, misuse, or unhealthy edge behavior
+- the event, log, or telemetry source expected to power each metric
+- the owning domain for instrumentation and review
+
+Metrics should be measurable, domain-relevant, and specific enough that a planning or coding skill can turn them into implementation tasks.
+
+Examples:
+
+- firmware: valid-sample completion rate, disconnect recovery success rate, OTA failure rate
+- mobile: pairing funnel completion, blocked-action rate, export success rate
+- backend: session upload duplicate rate, entitlement snapshot latency, recommendation fallback rate
+
+### 6. Make The Design Implementation-Ready
+
 End each domain design with a handoff section that another planning or coding skill can consume directly.
 
 Break work down into domain-specific implementation slices with:
@@ -198,12 +221,14 @@ Good outputs:
 - distinguish existing shared infrastructure from new feature-specific work
 - identify cross-team dependencies early
 - make state, data, and contract changes explicit
+- define measurable success metrics and where they come from
 - keep firmware, mobile, and backend runtime concerns in separate documents
 
 Avoid:
 
 - vague “implement UI” or “build backend” tasks
 - diagrams with unlabeled arrows
+- success metrics that are aspirational but not instrumentable
 - feature designs that ignore error paths or recovery behavior
 - leaving the task breakdown too coarse for planning or coding follow-up
 - mixing local-device behavior, phone behavior, and cloud behavior into one undifferentiated design section
@@ -223,9 +248,10 @@ Avoid:
 ### 6.2 Sequence Diagrams
 ### 6.3 Data Flow
 ## 7. Contracts And Data Model Impacts
-## 8. Failure Handling And Observability
-## 9. Verification Strategy
-## 10. Planning And Coding Handoff
+## 8. Success Metrics And Instrumentation
+## 9. Failure Handling And Observability
+## 10. Verification Strategy
+## 11. Planning And Coding Handoff
 ```
 
 ## Quality Bar
@@ -236,5 +262,6 @@ A good result must:
 - produce separate firmware, mobile, and backend design docs when those domains are relevant
 - include diagrams and contract detail, not just prose
 - make dependencies and open questions visible
+- include measurable success metrics with instrumentation ownership
 - end in implementation-ready task breakdowns
 - be directly usable by a planning or coding skill in the next step

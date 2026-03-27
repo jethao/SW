@@ -36,12 +36,23 @@ sequenceDiagram
 
 ## 4. Delivery Order
 
+## 4. Shared Rollout Metrics
+
+| Metric | Owners | Why it matters |
+| --- | --- | --- |
+| end-to-end session completion rate | Firmware, Mobile, Backend | verifies the full path from measurement start to cloud-accepted summary works in production |
+| cross-domain `session_id` correlation coverage | Firmware, Mobile, Backend | confirms telemetry can be stitched together for debugging and KPI analysis |
+| replay-to-upload recovery rate | Firmware, Mobile, Backend | measures whether disconnect recovery still results in durable backend history |
+| contract version mismatch rate | Firmware, Mobile | surfaces schema drift before it becomes broad user-visible failure |
+
+## 5. Delivery Order
+
 1. Lock shared schemas and versioning rules.
 2. Implement firmware session behavior and mobile measurement orchestration together.
 3. Implement backend session persistence before history/export polish.
 4. Add entitlement, support-directory, and recovery hardening after the main session path is stable.
 
-## 5. Recommended Follow-On Use
+## 6. Recommended Follow-On Use
 
 Use these documents as direct inputs to:
 

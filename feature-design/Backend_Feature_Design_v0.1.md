@@ -143,7 +143,24 @@ Primary backend entities:
 - `support_directory_entry`
 - `audit_event`
 
-## 7. Failure Handling And Observability
+## 7. Success Metrics And Instrumentation
+
+| Metric | Why it matters | Source | Owner |
+| --- | --- | --- | --- |
+| Device claim success rate | confirms onboarding requests are binding devices cleanly without avoidable backend rejection | claim endpoint request and outcome logs | Backend |
+| Session upload duplicate rate | measures idempotency pressure and helps catch retry storms or client replay bugs | session service dedupe outcomes by `session_id` | Backend |
+| Session upload acceptance latency | ensures completed summaries are persisted fast enough for history and export follow-up | API latency telemetry for `POST /v1/session-records` | Backend |
+| Entitlement snapshot freshness success rate | validates that app gating decisions are backed by fresh cloud state | entitlement service freshness checks and dependency health logs | Backend |
+| Recommendation fallback rate | highlights when suggestion generation is degraded and using backup behavior too often | recommendation service responses tagged as primary or fallback | Backend |
+| Support directory availability | ensures consult-professionals content remains available even during partial outages | support directory request success/error telemetry | Backend |
+
+Instrumentation notes:
+
+- all externally visible APIs should log request id, user id, device id when applicable, and contract version
+- idempotent endpoints should record first-write vs duplicate-write outcomes explicitly for trend analysis
+- recommendation and entitlement metrics should be segmented by dependency state so upstream outages are visible quickly
+
+## 8. Failure Handling And Observability
 
 Required failure modes:
 
@@ -163,7 +180,7 @@ Required observability:
 - entitlement outage incidence
 - directory fallback usage
 
-## 8. Verification Strategy
+## 9. Verification Strategy
 
 - API contract tests for claim, session, goal, entitlement, and directory endpoints
 - idempotency tests for repeated session uploads
@@ -171,7 +188,7 @@ Required observability:
 - entitlement snapshot schema and freshness tests
 - analytics event schema validation
 
-## 9. Planning And Coding Handoff
+## 10. Planning And Coding Handoff
 
 | Task | Objective | Acceptance criteria |
 | --- | --- | --- |

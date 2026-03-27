@@ -174,7 +174,24 @@ Mobile-owned persisted state:
 - suggestion cache
 - export audit records
 
-## 7. Failure Handling And Observability
+## 7. Success Metrics And Instrumentation
+
+| Metric | Why it matters | Source | Owner |
+| --- | --- | --- | --- |
+| Pairing funnel completion rate | shows whether users can reach first-use readiness from app entry through successful claim | onboarding analytics from discovery, connect, claim, and ready milestones | Mobile |
+| Measurement start-to-result completion rate | confirms the app can shepherd users from action entry to confirmed device result | session UI events correlated with firmware `session.result` receipt | Mobile |
+| Blocked-action rate by reason | highlights friction caused by entitlement, action lock, permissions, or incompatible state | route gating analytics with explicit block reason codes | Mobile |
+| Recovery success rate after disconnect | measures how often reconnect and replay flows preserve user progress | reconnect state analytics plus replay result outcomes | Mobile |
+| Sync queue drain latency | shows whether completed summaries are reaching backend within acceptable delay | local queue job timestamps and upload completion timestamps | Mobile |
+| Health export success rate | measures user success for completed-summary exports without leaking partial data | export audit records and platform callback outcomes | Mobile |
+
+Instrumentation notes:
+
+- analytics events should use shared `session_id`, feature, and entitlement-state attributes for cross-domain correlation
+- blocked-action and recovery events should use normalized reason codes so product and engineering can segment issues reliably
+- queue and export metrics should distinguish user-canceled actions from system failures
+
+## 8. Failure Handling And Observability
 
 Required user-visible states:
 
@@ -196,7 +213,7 @@ Required analytics:
 - read-only transition rate
 - recovery success rate
 
-## 8. Verification Strategy
+## 9. Verification Strategy
 
 - route-level tests for one-action lock behavior
 - BLE-driven integration tests for measurement flows
@@ -204,7 +221,7 @@ Required analytics:
 - local queue persistence and replay tests
 - iOS/Android export permission tests
 
-## 9. Planning And Coding Handoff
+## 10. Planning And Coding Handoff
 
 | Task | Objective | Acceptance criteria |
 | --- | --- | --- |
