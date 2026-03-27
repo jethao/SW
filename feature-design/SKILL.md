@@ -12,11 +12,19 @@ Translate a PRD plus software architecture specification into implementation-rea
 Use this skill when the user wants one or more software features designed in enough detail that:
 
 - another skill can break the work into plans, tickets, or coding tasks
-- firmware, mobile, and backend responsibilities are explicitly separated
+- firmware, mobile, and backend responsibilities are explicitly separated into their own design documents
 - feature behavior is documented with diagrams instead of only prose
 - dependencies on APIs, events, storage, and shared components are clear
 
 Do not use this skill for full-system architecture from scratch. Use `software-architecture` first when the system-level architecture is still missing or unstable.
+
+Enforce these domain boundaries:
+
+- firmware design is for software running on the local device only
+- mobile app design is for software running on the mobile phone only
+- backend design is for software running in cloud services only
+
+Do not blur those boundaries by placing cloud logic in firmware design, device-local sensing logic in backend design, or phone-only orchestration logic in firmware design.
 
 ## Expected Inputs
 
@@ -30,26 +38,29 @@ Treat the PRD and architecture spec as the primary sources of truth. Separate co
 
 ## Default Deliverable
 
-Produce either:
+Produce separate design documents unless the user explicitly asks for another packaging format:
 
-- one cohesive feature design package with a section per feature, or
-- one feature design package per requested feature
+- one firmware design document
+- one mobile app design document
+- one backend design document
+- optionally one short shared-integration appendix when cross-domain contracts need a neutral handoff surface
 
-Default section structure:
+Each design document should contain only the responsibilities, states, persistence, and runtime concerns for that domain. Cross-domain interactions should still be documented, but from the perspective of the owning domain.
+
+Default section structure for each domain document:
 
 1. Feature summary and inputs reviewed
-2. Scope, goals, and non-goals for the feature
-3. Requirements baseline
+2. Scope, goals, and non-goals for this domain
+3. Requirements baseline for this domain
 4. Assumptions, open questions, and dependencies
-5. Feature decomposition by firmware, mobile, backend, and supporting systems
-6. Component responsibilities and interfaces touched
-7. Feature state machine
-8. Sequence diagrams for primary and failure flows
-9. Data flow and persistence model
-10. API, BLE, event, and storage contract impacts
-11. Error handling, recovery, and observability
-12. Verification strategy
-13. Delivery breakdown for planning and coding handoff
+5. Responsibilities and interfaces touched
+6. Domain state machine
+7. Sequence diagrams for primary and failure flows involving this domain
+8. Data flow and persistence model for this domain
+9. Contract impacts for this domain
+10. Error handling, recovery, and observability
+11. Verification strategy
+12. Delivery breakdown for planning and coding handoff
 
 Prefer Mermaid for diagrams unless the user requests another format.
 
@@ -103,10 +114,10 @@ Call out when a feature is:
 
 Always include:
 
-- a feature state machine using PRD language where possible
+- a domain-specific state machine using PRD language where possible
 - at least one happy-path sequence diagram
 - at least one failure or recovery sequence diagram when the feature has interruption risk
-- a data flow diagram when the feature touches storage, sync, telemetry, or exports
+- a domain-specific data flow diagram when the feature touches storage, sync, telemetry, or exports
 
 State machine requirements:
 
@@ -149,7 +160,7 @@ For each contract, include:
 
 ### 5. Make The Design Implementation-Ready
 
-End each feature design with a handoff section that another planning or coding skill can consume directly.
+End each domain design with a handoff section that another planning or coding skill can consume directly.
 
 Break work down into domain-specific implementation slices with:
 
@@ -163,6 +174,10 @@ Break work down into domain-specific implementation slices with:
 - sequencing notes
 
 Keep tasks small enough that a downstream skill can turn them into tickets or code changes without having to re-derive the design.
+
+When producing firmware tasks, include only device-local code and validation work.
+When producing mobile tasks, include only phone app code and phone-local persistence or UX work.
+When producing backend tasks, include only cloud services, storage, admin, or event-pipeline work.
 
 Preferred grouping:
 
@@ -183,6 +198,7 @@ Good outputs:
 - distinguish existing shared infrastructure from new feature-specific work
 - identify cross-team dependencies early
 - make state, data, and contract changes explicit
+- keep firmware, mobile, and backend runtime concerns in separate documents
 
 Avoid:
 
@@ -190,26 +206,23 @@ Avoid:
 - diagrams with unlabeled arrows
 - feature designs that ignore error paths or recovery behavior
 - leaving the task breakdown too coarse for planning or coding follow-up
+- mixing local-device behavior, phone behavior, and cloud behavior into one undifferentiated design section
 
 ## Suggested Output Pattern
 
 ```markdown
-# Feature Design: [Feature Name]
+# [Domain] Feature Design: [Feature Name]
 
 ## 1. Summary
 ## 2. Inputs Reviewed
-## 3. Requirements Baseline
+## 3. Scope And Requirements Baseline
 ## 4. Assumptions And Dependencies
-## 5. Domain Decomposition
-### 5.1 Firmware
-### 5.2 Mobile App
-### 5.3 Backend
-### 5.4 Supporting Systems
+## 5. Responsibilities And Interfaces
 ## 6. Behavioral Design
 ### 6.1 State Machine
 ### 6.2 Sequence Diagrams
 ### 6.3 Data Flow
-## 7. Contracts And Data Model
+## 7. Contracts And Data Model Impacts
 ## 8. Failure Handling And Observability
 ## 9. Verification Strategy
 ## 10. Planning And Coding Handoff
@@ -220,7 +233,7 @@ Avoid:
 A good result must:
 
 - be feature-scoped rather than system-scoped
-- cover firmware, mobile, and backend when they are relevant
+- produce separate firmware, mobile, and backend design docs when those domains are relevant
 - include diagrams and contract detail, not just prose
 - make dependencies and open questions visible
 - end in implementation-ready task breakdowns
