@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Design"
+  short_description: "Design implementation-ready software features"
+  default_prompt: "Use $feature-design to turn the PRD and architecture spec into implementation-ready feature designs for firmware, mobile, and backend."
