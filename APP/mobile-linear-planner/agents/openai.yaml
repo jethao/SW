@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mobile Linear Planner"
+  short_description: "Plan mobile implementation into Linear-sized work items"
+  default_prompt: "Use $mobile-linear-planner to read the AirHealth PRD, software architecture spec, and mobile feature design, then break the work into epic, story, and task Linear tickets with each task sized for a reviewable sub-1000-line PR."

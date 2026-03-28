@@ -1,11 +1,11 @@
 ---
 name: firmware-linear-planner
-description: Break AirHealth firmware scope into actionable Linear planning artifacts by reading the PRD in `PM/PRD/PRD.md`, the latest software architecture spec in `SW/Architecture`, and the latest firmware feature design in `SW/feature-design`. Use when Codex needs to turn those source documents into a firmware delivery plan with one overall epic, one story per firmware feature or capability slice, and child tasks small enough to be implemented in a reviewable PR, splitting oversized work before drafting or creating Linear tickets.
+description: Break AirHealth firmware scope into actionable Linear planning artifacts by reading the PRD in `PM/PRD/PRD.md`, the latest software architecture spec in `SW/Architecture`, and the latest firmware feature design in `SW/feature-design`. Use when Codex needs to turn those source documents into a firmware delivery plan with one overall epic, one story per firmware feature or capability slice, and task sub-tickets under each story that are small enough to fit in a reviewable sub-1000-line pull request, splitting oversized implementation into multiple tasks before drafting or creating Linear tickets.
 ---
 
 # Firmware Linear Planner
 
-Translate AirHealth source documents into firmware execution work that is immediately usable for Linear planning. Produce one epic for the overall firmware effort, one story per firmware feature or capability slice, and child tasks that are independently implementable, testable, and small enough for a reasonable pull request.
+Translate AirHealth source documents into firmware execution work that is immediately usable for Linear planning. Produce one epic for the overall firmware effort, one story per firmware feature or capability slice, and task sub-tickets under each story that are independently implementable, testable, and small enough for a reasonable pull request.
 
 ## Required Inputs
 
@@ -17,8 +17,8 @@ Read these inputs in this order:
 
 Read these only when needed:
 
-- `SW/feature-design/Shared_Integration_Appendix_*.md` for contract details shared with mobile or cloud
-- hardware or algorithm specs referenced by the firmware design when a task cannot be sized responsibly without them
+- `SW/feature-design/Shared_Integration_Appendix_*.md` for contracts shared with mobile, backend, factory tooling, or support tooling
+- hardware, algorithm, or tooling specs referenced by the firmware design when a firmware task cannot be sized responsibly without them
 
 Prefer markdown sources over exported HTML. If multiple versioned markdown files exist, use the highest version unless the user explicitly names another file.
 
@@ -38,12 +38,15 @@ If the documents conflict:
 
 - Create exactly one epic for the overall firmware project, release, or planning slice requested by the user.
 - Create one story per distinct firmware feature or capability slice.
-- Create only task-level children under stories.
-- Keep implementation tasks firmware-owned. Put mobile, backend, hardware, or algorithm-team work into dependency notes instead of mixing them into the same task.
-- Keep every implementation task small enough for a reviewable PR. Target roughly under 1000 changed lines including tests, protocol definitions, and support files that land in the same change.
+- Create only task-level sub-tickets under stories.
+- Keep implementation tasks firmware-owned. Put mobile, backend, hardware, algorithm-team, analytics-pipeline, support-ops, or factory-tool work into dependency notes or blocking links instead of mixing them into the same task.
+- Keep every implementation task small enough for a reviewable PR. Target under 1000 changed lines including tests, protocol definitions, storage schema updates, fixtures, tooling hooks, and support files that land in the same change.
 - Split any task that combines multiple subsystems, multiple independently testable behaviors, or a broad cross-cutting refactor.
+- If a story includes both foundation work and feature-specific behavior, split them into separate tasks when they should not land in the same PR.
 - Include verification in the same task only when it is tightly coupled and still reviewable. Otherwise, create a separate verification task.
 - Do not create placeholder tickets that have no observable outcome, no acceptance criteria, or no clear owner.
+- Every task must be a sub-issue of its corresponding story.
+- Encode real prerequisites with explicit Linear blocking relationships. Do not leave true blockers only in prose.
 
 ## Workflow
 
@@ -59,7 +62,7 @@ Extract:
 - firmware-owned states, failure modes, and observability requirements
 - verification obligations such as unit, HIL, bench, power, replay, or OTA tests
 
-Call out cross-feature foundation work such as shared session orchestration, common BLE payloads, flash journaling, or diagnostics plumbing when it is a real delivery slice rather than incidental implementation detail.
+Call out cross-feature foundation work such as shared session orchestration, common BLE payloads, flash journaling, diagnostics plumbing, provisioning-latch storage, or profile-resolution wiring when it is a real delivery slice rather than incidental implementation detail.
 
 ### 2. Define The Epic
 
@@ -85,6 +88,9 @@ Good story candidates include:
 - fat-burning repeated-reading measurement
 - disconnect recovery and replay
 - low-power behavior
+- factory mode and provisioning latch
+- LED and button control
+- internal profile resolution and routing metadata
 - OTA transport and staging
 - diagnostics and observability
 
@@ -96,13 +102,15 @@ If a source design already contains a handoff task table, use it as seed materia
 
 ### 4. Break Stories Into Tasks
 
-For each story, create tasks with:
+For each story, create task sub-tickets with:
 
 - one primary objective
 - one clear implementation boundary
 - concrete acceptance criteria
 - concrete verification
 - explicit prerequisites or blockers
+
+Every task must belong to exactly one story. If work spans multiple stories, split it into separate story-specific sub-tickets instead of sharing one task across them.
 
 Prefer task boundaries that align to one of these implementation seams:
 
@@ -111,8 +119,11 @@ Prefer task boundaries that align to one of these implementation seams:
 - algorithm hook-up
 - persistence or journaling
 - power-management behavior
+- LED or button control boundary
+- profile-resolution or routing-metadata boundary
 - telemetry or diagnostics
 - OTA transfer or staging
+- factory authorization, latch, or log-transfer boundary
 - HIL, bench, or automated verification
 
 ### 5. Sanity-Check Task Size
@@ -137,13 +148,33 @@ Usually needs more than one task:
 - implement oral and fat session engines together
 - add disconnect recovery, flash journaling, and resume-query protocol together
 - add OTA transfer, validation, apply, rollback, and telemetry together
+- implement factory entry, one-time latch, diagnostics upload, and LED mapping together
 - implement low-power behavior plus broad bench and HIL coverage in one PR when the validation work is substantial
+
+When a task is too large, split by function or implementation seam rather than by vague phases. Prefer slices such as protocol first, persistence second, state machine third, diagnostics fourth.
 
 ### 6. Produce Linear-Ready Output
 
 If Linear tooling is available, create the issues directly.
 
+Create them in this order:
+
+1. epic
+2. stories parented to the epic
+3. tasks parented to their story
+4. blocking relationships between issues that cannot proceed independently
+
+When creating dependencies in Linear:
+
+- use parent/sub-issue links for epic -> story and story -> task hierarchy
+- use `blocks` relationships for true sequencing dependencies between sibling stories or tasks
+- prefer `A blocks B` when B cannot be implemented, verified, or merged responsibly before A ships
+- do not create noisy blocking links for soft coordination or optional follow-up work
+- if an external blocker does not yet have a Linear issue, keep it in notes and call it out as an open dependency
+
 If Linear tooling is not available, produce ticket-ready content that can be pasted or recreated in Linear without re-deriving the planning structure.
+
+If team, project, workflow state, or labels are ambiguous, infer them from existing related Linear issues when possible. Ask the user only if the ambiguity blocks correct ticket creation.
 
 ## Ticket Schema
 
@@ -157,12 +188,13 @@ For every issue, include:
 - Out of scope: nearby work intentionally excluded
 - Acceptance criteria: flat checklist phrased as observable outcomes
 - Verification: unit tests, HIL tests, bench tests, manual checks, or log inspection required
-- Dependencies: upstream or downstream issues, external inputs, or blocking questions
+- Blocked by: upstream issues or external inputs that must land first
+- Blocks: downstream issues that should explicitly depend on this issue
 - Notes: assumptions, open questions, or cross-team handoffs
 
 Add these fields when useful:
 
-- labels or components such as `firmware`, `ble`, `measurement`, `power`, `ota`, `diagnostics`, `hil`
+- labels or components such as `firmware`, `ble`, `measurement`, `power`, `factory`, `led`, `profile`, `ota`, `diagnostics`, `hil`
 - suggested sequencing order
 - rough size such as `S`, `M`, or `L`
 
@@ -195,7 +227,9 @@ Default to this structure unless the user asks for CSV, table, or direct Linear 
 - Out of scope: ...
 - Acceptance criteria:
   - ...
-- Dependencies:
+- Blocked by:
+  - ...
+- Blocks:
   - ...
 
 ### Task: <name>
@@ -208,7 +242,9 @@ Default to this structure unless the user asks for CSV, table, or direct Linear 
   - ...
 - Verification:
   - ...
-- Dependencies:
+- Blocked by:
+  - ...
+- Blocks:
   - ...
 - Suggested size: S|M|L
 ```
@@ -224,8 +260,10 @@ When helpful, end with:
 Before finishing, confirm:
 
 - every story maps to a real firmware feature or capability slice
+- every task is attached as a sub-ticket to exactly one story
 - every task has a single coherent implementation goal
 - no task hides mobile or backend implementation inside firmware scope
 - acceptance criteria are observable and testable
 - verification is explicit
 - oversized work has been split before issue creation
+- every task is nested under the correct story
