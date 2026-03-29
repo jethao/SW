@@ -1,6 +1,6 @@
 ---
 name: fw-mgr
-description: Manage the AirHealth firmware delivery loop by orchestrating `FW-ENG` and `FW-CR` for the `FIR` Linear team and `jethao/SW` firmware pull requests. Use when Codex should pick any unblocked firmware tickets, invoke `FW-ENG` to implement them, invoke `FW-CR` to review resulting PRs, alternate between implementation and review as needed, generate a review-history report, and continue advancing only tickets that still have no unresolved blockers or dependency gaps.
+description: Manage the AirHealth firmware delivery loop by orchestrating `FW-ENG` and `FW-CR` for the `FIR` Linear team and `jethao/SW` firmware pull requests. Use when Codex should first reconcile backlog story tickets based on sub-ticket completion, then pick any unblocked firmware tickets, invoke `FW-ENG` to implement them, invoke `FW-CR` to review resulting PRs, alternate between implementation and review as needed, generate a review-history report, and continue advancing only tickets that still have no unresolved blockers or dependency gaps.
 ---
 
 # Firmware Manager
@@ -9,12 +9,13 @@ Use this skill when Codex should act as the firmware work manager for AirHealth 
 
 The purpose of this skill is to coordinate the firmware loop safely:
 
-1. select only ready firmware tickets with no unresolved blockers
-2. invoke `FW-ENG` to implement and open PRs for ready tickets
-3. wait for PRs to complete, then invoke `FW-CR` to review live PRs against their linked `FIR` tickets
-4. alternate `FW-ENG` and `FW-CR` until each active PR has no remaining actionable review findings
-5. generate a report from the PR review history
-6. continue advancing only tickets that still have no unresolved blockers or dependency gaps
+1. reconcile backlog story tickets against their sub-ticket completion state
+2. select only ready firmware tickets with no unresolved blockers
+3. invoke `FW-ENG` to implement and open PRs for ready tickets
+4. wait for PRs to complete, then invoke `FW-CR` to review live PRs against their linked `FIR` tickets
+5. alternate `FW-ENG` and `FW-CR` until each active PR has no remaining actionable review findings
+6. generate a report from the PR review history
+7. continue advancing only tickets that still have no unresolved blockers or dependency gaps
 
 ## Managed Skills
 
@@ -28,6 +29,7 @@ Use those skills for the detailed execution. `FW-mgr` owns queue control, stop c
 ## Hard Rules
 
 - Work only in firmware scope under `SW/FW`.
+- Before invoking `FW-ENG`, inspect backlog issues in `FIR` with the `Story` label and mark a story `Done` when all of its sub-tickets are already `Done`.
 - Only start tickets in the `FIR` team that are in project `AirHealth` and have no unresolved blockers or practical dependency gaps.
 - Open PRs do not block starting another ticket unless the new ticket depends on one of those still-open tickets or is otherwise practically blocked.
 - Do not start a blocked ticket just because some other open PR is review-clean.
@@ -73,10 +75,13 @@ Multiple lanes may be active at the same time, but only for tickets that are ind
 
 Before doing any implementation work:
 
-1. inspect open firmware PRs in `jethao/SW`
-2. inspect the linked `FIR` ticket for each open firmware PR
-3. review any active PR that has unresolved actionable feedback
-4. also look for the next ready `FIR` tickets with no unresolved blocker and no dependency on still-open work
+1. inspect backlog issues in `FIR` with the `Story` label
+2. for each such story, inspect its sub-tickets
+3. if every sub-ticket is `Done`, set the story status to `Done`
+4. inspect open firmware PRs in `jethao/SW`
+5. inspect the linked `FIR` ticket for each open firmware PR
+6. review any active PR that has unresolved actionable feedback
+7. also look for the next ready `FIR` tickets with no unresolved blocker and no dependency on still-open work
 
 Open PRs are allowed to coexist as long as each newly started ticket is still independently unblocked.
 
@@ -84,7 +89,16 @@ Open PRs are allowed to coexist as long as each newly started ticket is still in
 
 Follow this sequence.
 
-### 1. Check For Active Firmware PRs
+### 1. Reconcile Backlog Stories
+
+- list `FIR` backlog issues labeled `Story`
+- inspect sub-tickets for each story
+- if all sub-tickets are `Done`, update the story itself to `Done`
+- do not mark a story `Done` if any sub-ticket is still open, canceled, duplicate, or otherwise unresolved
+
+This story-reconciliation pass must happen before any `FW-ENG` invocation.
+
+### 2. Check For Active Firmware PRs
 
 - list open PRs in `jethao/SW`
 - keep only PRs that materially touch `FW/`
@@ -97,7 +111,7 @@ If there are active firmware PRs:
 - keep approval-ready but unmerged PRs recorded as open dependency candidates
 - continue to queue evaluation for other tickets that remain independently ready
 
-### 2. Start Ready Tickets Even When Other PRs Are Open
+### 3. Start Ready Tickets Even When Other PRs Are Open
 
 - inspect `FIR` backlog tickets in project `AirHealth`
 - choose only tickets with no unresolved blockers, no practical dependency gaps, and no dependency on still-open PR work
@@ -108,7 +122,7 @@ If no additional ticket is ready:
 
 - produce a blocked or waiting report and stop
 
-### 3. Review Loop For Active PRs
+### 4. Review Loop For Active PRs
 
 For each active firmware PR that needs review attention:
 
@@ -158,6 +172,7 @@ Refresh `SW/FW/fw-mgr.rpt` on every invocation.
 The report should include:
 
 - timestamp
+- stories that were updated to `Done`, if any
 - active tickets and titles, if any
 - active PR URLs and statuses, if any
 - whether the current run invoked `FW-ENG`, `FW-CR`, or both
@@ -173,6 +188,7 @@ Keep the report concise and operational.
 
 For each invocation, report:
 
+- whether any backlog stories were marked `Done`
 - whether new tickets were started or intentionally skipped
 - the active tickets and PRs, if any
 - whether `FW-ENG` was invoked

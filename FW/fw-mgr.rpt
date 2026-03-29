@@ -1,40 +1,43 @@
 FW-MGR REPORT
-Timestamp: 2026-03-28 19:21:14 PDT
+Timestamp: 2026-03-28 20:44:41 PDT
 
-Lane status: waiting_for_merge
+Active lanes:
+- FIR-18 — waiting_for_merge
 
 Active ticket:
-- FIR-14
-- Title: Update shared session orchestrator for one-session-at-a-time flow
-- Linear URL: https://linear.app/airhealth/issue/FIR-14/update-shared-session-orchestrator-for-one-session-at-a-time-flow
+- FIR-18
+  Title: Implement fat baseline lock and repeated-reading loop
+  Linear URL: https://linear.app/airhealth/issue/FIR-18/implement-fat-baseline-lock-and-repeated-reading-loop
 
 Active PR:
-- PR #3
-- Title: FIR-14 Update shared session orchestrator
-- URL: https://github.com/jethao/SW/pull/3
-- Branch: codex/fir-14-session-orchestrator
-- Commit: 508f7160e192c3f5cadfaff27f667994057e0d63
-- GitHub review state: no formal approval recorded
+- PR #8
+  Title: FIR-18 Implement fat baseline lock and repeated-reading loop
+  URL: https://github.com/jethao/SW/pull/8
+  Branch: codex/fir-18-fat-loop
+  Commit: 3449f750a686eebdb18f875e7745eb7b1f2af975
+  GitHub review state: no formal approval recorded
 
 Run actions:
-- Opened new firmware lane because no open firmware PR remained after FIR-2 merged
-- Invoked FW-ENG behavior for FIR-14
-- Invoked FW-CR behavior for PR #3
+- Confirmed there were no open firmware PRs at the start of the run
+- Observed that PR #6 and PR #7 had already merged
+- Selected FIR-18 as the next ready unblocked leaf task
+- Invoked FW-ENG for FIR-18 and opened PR #8
+- Invoked FW-CR for PR #8 and found no actionable review findings
 
 Verification:
 - cmake configure passed
 - cmake build passed
-- ctest passed with pairing_test and session_test
+- ctest passed with pairing_test, session_test, session_contract_test, oral_test, low_power_test, and fat_test
 
 Latest review history:
-- No PR comments or review comments are currently open on PR #3
+- PR #8 currently has no PR comments or review comments
 - Latest FW-CR pass found no actionable review findings
 - Formal GitHub approval failed because the same account authored and reviewed the PR
 
 Approval readiness:
-- approval-ready by substantive review: yes
+- substantive review clean: yes
 - blocked by same-account GitHub approval rule: yes
-- waiting for merge before starting next ticket: yes
+- waiting for merge before dependent or follow-on fat session work proceeds: yes
 
 Manager stop reason:
-- Current PR is review-clean and approval-ready, but FW-mgr must not auto-proceed until the PR is merged.
+- The active FIR-18 lane is review-clean and approval-ready, so FW-mgr is waiting for merge before moving dependent fat-loop follow-on work.

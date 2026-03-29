@@ -1,4 +1,4 @@
 interface:
   display_name: "FW MGR"
   short_description: "Advance all ready firmware tickets while reviewing open PRs and skipping blocked work"
-  default_prompt: "Use $fw-mgr to manage the AirHealth firmware queue by selecting all unblocked FIR tickets, invoking FW-ENG for ready tickets, invoking FW-CR for open firmware PRs that need review attention, generating SW/FW/fw-mgr.rpt, and continuing only for tickets that still have no dependency or blocker gaps."
+  default_prompt: "Use $fw-mgr to manage the AirHealth firmware queue by first reconciling backlog FIR stories and marking a story Done when all of its sub-tickets are Done, then selecting all unblocked FIR tickets, invoking FW-ENG for ready tickets, invoking FW-CR for open firmware PRs that need review attention, generating SW/FW/fw-mgr.rpt, and continuing only for tickets that still have no dependency or blocker gaps."
