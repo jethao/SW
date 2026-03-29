@@ -31,6 +31,7 @@ If a PR is open against the SW repo but does not materially touch firmware scope
 ## Hard Rules
 
 - Review only open PRs.
+- Before making any GitHub or Linear review action call, gather as much review context as possible first: PR metadata, body, diff, touched files, linked ticket details, current review state, existing comments, and any needed surrounding firmware code.
 - Do not approve a PR unless the linked Linear ticket is clear and the implementation matches it.
 - If the PR has no linked ticket, treat that as incomplete review context and request changes unless the user explicitly says otherwise.
 - If the linked ticket and code disagree, the ticket is the source of truth for review scope unless the PR description clearly documents an approved scope change.
@@ -80,6 +81,7 @@ Follow this sequence.
 
 - list open PRs in `jethao/SW`
 - filter to PRs that touch firmware paths or are clearly firmware tickets
+- collect current review comments and state before deciding whether a new review action is needed
 - review one PR at a time unless the user explicitly asks for a batch summary
 
 ### 2. Resolve The Linked Ticket
@@ -89,6 +91,7 @@ For each PR:
 - find the linked Linear ticket
 - open the ticket
 - read the objective, scope, acceptance criteria, blockers, and notes
+- read existing PR comments or review threads when they affect current review state or prior findings
 
 If the ticket cannot be found or is ambiguous, do not approve the PR.
 
@@ -139,6 +142,7 @@ Missing verification is a reason to request changes when the ticket clearly need
 
 If there are material issues:
 
+- make sure the request-for-changes comment reflects the full gathered context rather than only the first missing detail discovered
 - request changes
 - summarize the concrete problems
 - tie each problem back to the ticket or code behavior

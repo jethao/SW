@@ -1,4 +1,4 @@
 interface:
   display_name: "FW CR"
   short_description: "Review firmware PRs against linked FIR tickets"
-  default_prompt: "Use $fw-cr to review open firmware PRs in jethao/SW, compare each PR against its linked FIR Linear ticket, request changes for mismatches or correctness issues, and approve only when the implementation looks right."
+  default_prompt: "Use $fw-cr to gather PR, ticket, comment, and surrounding firmware context before taking review actions, then review open firmware PRs in jethao/SW against their linked FIR tickets and approve only when the implementation looks right."

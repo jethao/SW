@@ -1,5 +1,5 @@
 AirHealth Firmware Initialization Report
-Generated at: 2026-03-28 18:12:38 PDT
+Generated at: 2026-03-28 22:47:35 PDT
 
 Status: READY
 
@@ -18,12 +18,14 @@ Environment Check
 - arm-none-eabi-gcc: /opt/homebrew/bin/arm-none-eabi-gcc
 - nrfutil: /opt/homebrew/bin/nrfutil
 - SDK path: /Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/nordic/ncs
-- SDK revision request: not set
+- SDK revision request: v3.2.4
 - SDK revision resolved: v3.2.4
-- SDK action: reused existing SDK
+- SDK action: installed vendor SDK
 
 Actions Taken
--  none
+-  Installed west into /Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/.venv-fw-init
+-  Initialized nRF Connect SDK workspace at /Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/nordic/ncs
+-  Updated nRF Connect SDK modules in /Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/nordic/ncs
 
 Remaining Gaps
 -  none

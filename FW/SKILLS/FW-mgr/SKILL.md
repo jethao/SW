@@ -29,6 +29,7 @@ Use those skills for the detailed execution. `FW-mgr` owns queue control, stop c
 ## Hard Rules
 
 - Work only in firmware scope under `SW/FW`.
+- Before invoking `FW-ENG`, `FW-CR`, or making any Linear or GitHub write call, collect as much relevant queue context as possible first: backlog story state, active PR map, linked ticket dependencies, review history, blockers, and currently ready tickets.
 - Before invoking `FW-ENG`, inspect backlog issues in `FIR` with the `Story` label and mark a story `Done` when all of its sub-tickets are already `Done`.
 - Only start tickets in the `FIR` team that are in project `AirHealth` and have no unresolved blockers or practical dependency gaps.
 - Open PRs do not block starting another ticket unless the new ticket depends on one of those still-open tickets or is otherwise practically blocked.
@@ -83,6 +84,8 @@ Before doing any implementation work:
 6. review any active PR that has unresolved actionable feedback
 7. also look for the next ready `FIR` tickets with no unresolved blocker and no dependency on still-open work
 
+Prefer batched read calls that build one coherent queue snapshot before any issue-state or PR-state write.
+
 Open PRs are allowed to coexist as long as each newly started ticket is still independently unblocked.
 
 ## Orchestration Workflow
@@ -102,6 +105,7 @@ This story-reconciliation pass must happen before any `FW-ENG` invocation.
 
 - list open PRs in `jethao/SW`
 - keep only PRs that materially touch `FW/`
+- gather linked ticket state, dependency impact, and outstanding review comments for those PRs before deciding the next action
 - if one or more such PRs exist, review the ones with unresolved feedback first
 - track which linked tickets are still open so dependent tickets are not started prematurely
 
@@ -114,6 +118,7 @@ If there are active firmware PRs:
 ### 3. Start Ready Tickets Even When Other PRs Are Open
 
 - inspect `FIR` backlog tickets in project `AirHealth`
+- use the already-gathered dependency and PR context to eliminate tickets that are only superficially ready
 - choose only tickets with no unresolved blockers, no practical dependency gaps, and no dependency on still-open PR work
 - prefer leaf implementation tasks over stories
 - invoke `FW-ENG` for one or more such ready tickets as appropriate for the current invocation

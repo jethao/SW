@@ -12,6 +12,7 @@ The job of this skill is to pick only firmware tickets that are truly ready, imp
 ## Hard Rules
 
 - All firmware code must live under `SW/FW/Source`.
+- Before making any Linear or GitHub API write call, gather as much relevant context as possible first: ticket details, parent and child relationships, blockers, open PR state, review comments, and the relevant local firmware code and tests.
 - Do not start a ticket that has any unresolved blocker.
 - Do not bundle multiple Linear tickets into one implementation PR.
 - Create exactly one PR per implemented ticket.
@@ -90,6 +91,7 @@ Follow this sequence.
 
 - Read backlog tickets in `FIR` for project `AirHealth`.
 - Collect parent and dependency context.
+- Inspect existing open firmware PRs, linked ticket state, and any outstanding PR comments before deciding whether to start or update work.
 - Filter to tickets with no unresolved blockers.
 - Prefer tickets that are already implementation-sized.
 - If multiple tickets are ready, process them one at a time.
@@ -99,7 +101,9 @@ Follow this sequence.
 Before editing code:
 
 - read the ticket description, acceptance criteria, and dependencies
+- read parent, sibling, sub-ticket, and blocker context as needed to avoid missing scope or sequencing information
 - inspect relevant firmware code under `SW/FW/Source`
+- inspect existing tests, build glue, and any open PR comments or review feedback relevant to the same ticket
 - read PRD, architecture, or feature-design documents only when needed to resolve ambiguity
 - keep the planned change small enough for one reviewable PR
 
@@ -155,6 +159,7 @@ If the GitHub and Linear integration is available, attach the PR to the ticket d
 
 When Linear write access is available:
 
+- make the write only after the implementation, verification, and PR context are fully assembled
 - add the PR link to the issue
 - move the issue out of `Backlog` only if the user asked for state changes or the workflow clearly expects it
 

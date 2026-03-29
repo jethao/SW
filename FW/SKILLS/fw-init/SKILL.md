@@ -35,9 +35,14 @@ Follow this sequence:
    - `ninja`
    - ARM cross-compiler such as `arm-zephyr-eabi-gcc` or `arm-none-eabi-gcc`
    - optional vendor helpers such as `nrfutil`
-3. If the vendor SDK is missing, run [`scripts/run_fw_init.sh`](scripts/run_fw_init.sh).
-4. If network access or writes outside the workspace are required, request escalation before running the script.
-5. Always write or refresh the report at `SW/FW/initialize.rpt`.
+3. Gather as much local context as possible before any network or installer call:
+   - existing repo-local SDK checkout and version
+   - existing cached toolchain locations
+   - script environment overrides already set
+   - current report contents when useful for comparing previous state
+4. If the vendor SDK is missing, run [`scripts/run_fw_init.sh`](scripts/run_fw_init.sh).
+5. If network access or writes outside the workspace are required, request escalation before running the script.
+6. Always write or refresh the report at `SW/FW/initialize.rpt`.
 
 ## Script Use
 
@@ -64,6 +69,8 @@ Default tooling virtualenv:
 - `SW/FW/vendor-sdk/.venv-fw-init`
 
 The script should prefer the repo-local SDK path so the firmware environment lives under `SW/FW`. The `vendor-sdk` folder is intended to be gitignored except for lightweight bootstrap files and documentation, so the full vendor SDK does not need to be committed to Git. Reuse a global SDK cache only when `AIRHEALTH_FW_ALLOW_GLOBAL_SDK=1` is set.
+
+Before downloading or installing anything, consolidate the environment findings first so the init pass can make the smallest necessary set of network and package-manager calls.
 
 ## Report Requirements
 

@@ -1,4 +1,4 @@
 interface:
   display_name: "Firmware Init"
   short_description: "Verify firmware environment support and install the MCU SDK"
-  default_prompt: "Use $fw-init to read the latest AirHealth EE design spec, detect the main MCU, verify whether the local firmware environment supports it, install the proper vendor SDK if needed, and write the results to SW/FW/initialize.rpt."
+  default_prompt: "Use $fw-init to read the latest AirHealth EE design spec, gather local environment and SDK context before any network call, install the proper vendor SDK only if needed, and write the results to SW/FW/initialize.rpt."

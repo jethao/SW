@@ -36,6 +36,8 @@ If the documents conflict:
 
 ## Planning Rules
 
+- Gather as much relevant planning context as possible before making any Linear API call. Read and reconcile the source documents first, draft the full hierarchy locally, inspect existing Linear project, state, label, and nearby issue conventions when needed, and only then create or update issues.
+- Prefer batched read calls and one coherent planning pass over many small exploratory Linear calls.
 - Create exactly one epic for the overall firmware project, release, or planning slice requested by the user.
 - Create one story per distinct firmware feature or capability slice.
 - Create only task-level sub-tickets under stories.
@@ -61,6 +63,8 @@ Extract:
 - architectural boundaries, contracts, and dependencies
 - firmware-owned states, failure modes, and observability requirements
 - verification obligations such as unit, HIL, bench, power, replay, or OTA tests
+
+Before any Linear write, also gather any existing team or project metadata needed to create the ticket set correctly, such as current labels, workflow states, and nearby planning conventions.
 
 Call out cross-feature foundation work such as shared session orchestration, common BLE payloads, flash journaling, diagnostics plumbing, provisioning-latch storage, or profile-resolution wiring when it is a real delivery slice rather than incidental implementation detail.
 
@@ -156,6 +160,12 @@ When a task is too large, split by function or implementation seam rather than b
 ### 6. Produce Linear-Ready Output
 
 If Linear tooling is available, create the issues directly.
+
+Before any Linear write:
+
+- finish the full local draft of the epic, stories, tasks, and blocking map
+- resolve team, project, state, and label inference from existing Linear context as far as possible
+- avoid creating partial issue trees and then discovering missing context later
 
 Create them in this order:
 
