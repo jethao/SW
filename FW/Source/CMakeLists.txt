@@ -16,6 +16,7 @@ add_library(airhealth_fw_pairing
   src/session_journal.cpp
   src/led_button.cpp
   src/routing.cpp
+  src/factory_auth.cpp
 )
 
 target_include_directories(airhealth_fw_pairing
@@ -104,6 +105,15 @@ target_link_libraries(routing_test
     airhealth_fw_pairing
 )
 
+add_executable(factory_auth_test
+  tests/factory_auth_test.cpp
+)
+
+target_link_libraries(factory_auth_test
+  PRIVATE
+    airhealth_fw_pairing
+)
+
 enable_testing()
 
 add_test(
@@ -149,4 +159,9 @@ add_test(
 add_test(
   NAME routing_test
   COMMAND routing_test
+)
+
+add_test(
+  NAME factory_auth_test
+  COMMAND factory_auth_test
 )
