@@ -11,6 +11,7 @@ using airhealth::fw::OtaChunk;
 using airhealth::fw::OtaChunkReceiver;
 using airhealth::fw::OtaManifest;
 using airhealth::fw::OtaProgress;
+using airhealth::fw::ota_image_digest;
 using airhealth::fw::ota_progress_to_json;
 
 void expect(bool condition, const std::string& message) {
@@ -20,18 +21,24 @@ void expect(bool condition, const std::string& message) {
 }
 
 OtaManifest make_manifest() {
+  const std::string image =
+      std::string(256, 'A') + std::string(256, 'B') +
+      std::string(256, 'C') + std::string(256, 'D');
   return OtaManifest {
       .image_id = "ota-image-30",
       .total_size_bytes = 1024,
       .chunk_size_bytes = 256,
+      .image_digest = ota_image_digest(image),
   };
 }
 
 OtaManifest make_resume_manifest() {
+  const std::string image = "ABCDEFGHIJ";
   return OtaManifest {
       .image_id = "ota-image-resume",
       .total_size_bytes = 10,
       .chunk_size_bytes = 4,
+      .image_digest = ota_image_digest(image),
   };
 }
 
@@ -117,6 +124,42 @@ void test_progress_json_is_stable() {
   );
 }
 
+void test_invalid_image_digest_fails_validation() {
+  OtaChunkReceiver receiver;
+  auto manifest = make_resume_manifest();
+  manifest.image_digest = "bad-digest";
+  receiver.begin(manifest);
+
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 0, .payload = "ABCD"}));
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 1, .payload = "EFGH"}));
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 2, .payload = "IJ"}));
+
+  const auto result = receiver.stage_apply("slot-b");
+  expect(!result.applied && !result.verified,
+         "invalid OTA digest should block staged apply");
+  expect(result.reason_code == "validation_failed",
+         "digest mismatch should emit a stable validation failure reason");
+}
+
+void test_verified_image_records_pending_slot_metadata() {
+  OtaChunkReceiver receiver;
+  receiver.begin(make_resume_manifest());
+
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 0, .payload = "ABCD"}));
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 1, .payload = "EFGH"}));
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 2, .payload = "IJ"}));
+
+  const auto apply = receiver.stage_apply("slot-b");
+  expect(apply.applied && apply.verified,
+         "verified OTA image should be staged for apply");
+  expect(apply.pending_slot == "slot-b",
+         "apply result should retain pending-slot metadata for handoff");
+  expect(receiver.pending_slot() == "slot-b",
+         "receiver should retain pending-slot metadata after staging");
+  expect(apply.reason_code == "apply_staged",
+         "successful apply staging should emit a stable reason code");
+}
+
 }  // namespace
 
 int main() {
@@ -126,6 +169,8 @@ int main() {
     test_malformed_chunk_sizes_are_rejected();
     test_interrupted_transfer_can_resume_with_retained_chunks();
     test_progress_json_is_stable();
+    test_invalid_image_digest_fails_validation();
+    test_verified_image_records_pending_slot_metadata();
   } catch (const std::exception& error) {
     std::cerr << "ota_test failed: " << error.what() << "\n";
     return EXIT_FAILURE;
