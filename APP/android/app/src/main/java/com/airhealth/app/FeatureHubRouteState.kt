@@ -36,6 +36,8 @@ data class SelectedFeatureContext(
 sealed class FeatureHubRoute {
     data object Home : FeatureHubRoute()
 
+    data class Setup(val pairingState: PairingFlowState) : FeatureHubRoute()
+
     data class Feature(val context: SelectedFeatureContext) : FeatureHubRoute()
 
     data class Action(
@@ -46,6 +48,7 @@ sealed class FeatureHubRoute {
     val routeId: String
         get() = when (this) {
             Home -> "home"
+            is Setup -> "setup/${pairingState.step.routeId}"
             is Feature -> "feature_hub/${context.feature.routeId}"
             is Action -> "feature_hub/${context.feature.routeId}/${action.routeId}"
         }
@@ -73,6 +76,75 @@ class FeatureHubRouteState(
                 lastVisitedRouteId = FeatureHubRoute.Home.routeId,
             ),
         )
+    }
+
+    fun openSetup() {
+        route = FeatureHubRoute.Setup(PairingFlowState.permissionPrimer())
+    }
+
+    fun denyBluetoothPermission() {
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.PERMISSION_DENIED,
+                recoveryMessage = "Bluetooth access is required to discover your AirHealth device.",
+            ),
+        )
+    }
+
+    fun grantBluetoothPermission() {
+        route = FeatureHubRoute.Setup(PairingFlowState.discovering())
+    }
+
+    fun discoverDevice() {
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.DEVICE_DISCOVERED,
+                discoveredDevice = PairingFlowState.defaultDevice(),
+            ),
+        )
+    }
+
+    fun connectDiscoveredDevice() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.CONNECTING,
+                discoveredDevice = device,
+            ),
+        )
+    }
+
+    fun confirmDeviceConnection() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.CONNECTED,
+                discoveredDevice = device,
+            ),
+        )
+    }
+
+    fun markDiscoveryTimeout() {
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.TIMEOUT,
+                recoveryMessage = "No AirHealth device responded before the scan timeout. Retry to scan again.",
+            ),
+        )
+    }
+
+    fun retrySetupAfterFailure() {
+        route = FeatureHubRoute.Setup(PairingFlowState.permissionPrimer())
+    }
+
+    fun restartDiscovery() {
+        route = FeatureHubRoute.Setup(PairingFlowState.discovering())
+    }
+
+    fun exitSetup() {
+        route = FeatureHubRoute.Home
     }
 
     fun openAction(action: FeatureAction) {
@@ -121,6 +193,7 @@ class FeatureHubRouteState(
 
     private fun currentFeatureContext(): SelectedFeatureContext? {
         return when (val currentRoute = route) {
+            is FeatureHubRoute.Setup -> null
             is FeatureHubRoute.Feature -> currentRoute.context
             is FeatureHubRoute.Action -> currentRoute.context
             FeatureHubRoute.Home -> null

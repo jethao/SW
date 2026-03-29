@@ -70,8 +70,42 @@ struct AppShellView: View {
         switch store.route {
         case .home:
             FeatureHubHomeView(
+                onStartSetup: {
+                    store.openSetup()
+                },
                 onSelectFeature: { feature in
                     store.openFeature(feature)
+                }
+            )
+        case let .setup(pairingState):
+            PairingSetupView(
+                pairingState: pairingState,
+                onAllowBluetooth: {
+                    store.grantBluetoothPermission()
+                },
+                onDenyBluetooth: {
+                    store.denyBluetoothPermission()
+                },
+                onDiscoverDevice: {
+                    store.discoverDevice()
+                },
+                onDiscoveryTimeout: {
+                    store.markDiscoveryTimeout()
+                },
+                onConnectDevice: {
+                    store.connectDiscoveredDevice()
+                },
+                onFinishConnection: {
+                    store.confirmDeviceConnection()
+                },
+                onRetryPermission: {
+                    store.retrySetupAfterFailure()
+                },
+                onRetryDiscovery: {
+                    store.restartDiscovery()
+                },
+                onBackHome: {
+                    store.exitSetup()
                 }
             )
         case let .featureHub(context):
@@ -107,6 +141,8 @@ struct AppShellView: View {
         switch store.route {
         case .home:
             return "AirHealth"
+        case .setup:
+            return "Add Device"
         case let .featureHub(context):
             return context.feature.title
         case let .featureAction(_, action):
@@ -116,6 +152,7 @@ struct AppShellView: View {
 }
 
 private struct FeatureHubHomeView: View {
+    let onStartSetup: () -> Void
     let onSelectFeature: (FeatureKind) -> Void
 
     var body: some View {
@@ -125,6 +162,14 @@ private struct FeatureHubHomeView: View {
                     .font(.title2.bold())
 
                 Text("Start from the home feature hub, keep the selected feature context, and route to the next action from there.")
+                    .foregroundStyle(.secondary)
+
+                Button("Add Device") {
+                    onStartSetup()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Text("Start BLE setup, request Bluetooth access, discover nearby devices, and connect before claim/setup completion.")
                     .foregroundStyle(.secondary)
 
                 ForEach(FeatureKind.allCases) { feature in
@@ -148,6 +193,128 @@ private struct FeatureHubHomeView: View {
             }
             .padding()
         }
+    }
+}
+
+private struct PairingSetupView: View {
+    let pairingState: PairingFlowState
+    let onAllowBluetooth: () -> Void
+    let onDenyBluetooth: () -> Void
+    let onDiscoverDevice: () -> Void
+    let onDiscoveryTimeout: () -> Void
+    let onConnectDevice: () -> Void
+    let onFinishConnection: () -> Void
+    let onRetryPermission: () -> Void
+    let onRetryDiscovery: () -> Void
+    let onBackHome: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("BLE setup")
+                .font(.title3.bold())
+
+            Text("Move from setup entry through Bluetooth permission, discovery, and connection before claim and mode setup.")
+                .foregroundStyle(.secondary)
+
+            Text("Current route ID: setup/\(pairingState.step.rawValue)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            switch pairingState.step {
+            case .permissionPrimer:
+                Text("AirHealth needs Bluetooth access to discover and connect to your device.")
+                Button("Allow Bluetooth") {
+                    onAllowBluetooth()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Not Now") {
+                    onDenyBluetooth()
+                }
+                .buttonStyle(.bordered)
+
+            case .permissionDenied:
+                Text(pairingState.recoveryMessage ?? "Bluetooth access is required.")
+                    .foregroundStyle(.secondary)
+                Button("Retry Permission") {
+                    onRetryPermission()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Back To Home") {
+                    onBackHome()
+                }
+                .buttonStyle(.bordered)
+
+            case .discovering:
+                Text("Scanning for nearby AirHealth devices.")
+                    .foregroundStyle(.secondary)
+                Button("Use Discovered Device") {
+                    onDiscoverDevice()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("No Device Found") {
+                    onDiscoveryTimeout()
+                }
+                .buttonStyle(.bordered)
+
+            case .deviceDiscovered:
+                Text("AirHealth device discovered and ready to connect.")
+                    .foregroundStyle(.secondary)
+                if let device = pairingState.discoveredDevice {
+                    Text("Device: \(device.name)")
+                    Text("Protocol: \(device.protocolVersion) • Signal: \(device.signalLabel)")
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                Button("Connect Device") {
+                    onConnectDevice()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Rescan") {
+                    onRetryDiscovery()
+                }
+                .buttonStyle(.bordered)
+
+            case .connecting:
+                Text("Connecting over BLE and confirming protocol compatibility.")
+                    .foregroundStyle(.secondary)
+                if let device = pairingState.discoveredDevice {
+                    Text("Connecting to \(device.name)")
+                }
+                Button("Finish Connection") {
+                    onFinishConnection()
+                }
+                .buttonStyle(.borderedProminent)
+
+            case .connected:
+                Text("Device connected. Claim and initial mode setup continue in the next onboarding ticket.")
+                    .foregroundStyle(.secondary)
+                if let device = pairingState.discoveredDevice {
+                    Text("Connected device: \(device.name)")
+                    Text("Protocol: \(device.protocolVersion)")
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                Button("Back To Home") {
+                    onBackHome()
+                }
+                .buttonStyle(.borderedProminent)
+
+            case .timeout:
+                Text(pairingState.recoveryMessage ?? "Discovery timed out.")
+                    .foregroundStyle(.secondary)
+                Button("Retry Scan") {
+                    onRetryDiscovery()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Back To Home") {
+                    onBackHome()
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Spacer()
+        }
+        .padding()
     }
 }
 
