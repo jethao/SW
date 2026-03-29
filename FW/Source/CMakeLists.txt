@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(airhealth_fw_pairing
   src/pairing.cpp
+  src/pairing_file_store.cpp
   src/session.cpp
   src/session_contract.cpp
   src/oral.cpp

@@ -1,0 +1,6 @@
+/ {
+	aliases {
+		airhealth-status-led = &led0;
+		airhealth-action-button = &button0;
+	};
+};
