@@ -1,0 +1,32 @@
+AirHealth Firmware Initialization Report
+Generated at: 2026-03-28 17:57:05 PDT
+
+Status: PARTIAL
+
+Inputs
+- EE design spec: /Users/haohua/coding/AirHealth/HW/EE/EE_Design_Spec_v0.5.md
+- MCU target: nRF5340-class BLE SoC / MCU
+- Vendor: Nordic
+- Expected SDK: nRF Connect SDK
+
+Environment Check
+- python3: /opt/homebrew/bin/python3
+- west: /Users/haohua/.cache/airhealth/fw-sdk/.venv-fw-init/bin/west
+- cmake: missing
+- ninja: missing
+- arm-zephyr-eabi-gcc: missing
+- arm-none-eabi-gcc: missing
+- nrfutil: missing
+- SDK path: /Users/haohua/.cache/airhealth/fw-sdk/nordic/ncs
+- SDK revision request: not set
+- SDK revision resolved: v3.3.0-preview3
+- SDK action: reused existing SDK
+
+Actions Taken
+-  none
+
+Remaining Gaps
+-  cmake is missing
+-  ninja is missing
+-  ARM cross-compiler is missing
+-  Installed SDK revision appears to be pre-release: v3.3.0-preview3
