@@ -1,0 +1,4 @@
+interface:
+  display_name: "APP Init"
+  short_description: "Verify iOS and Android environment support and packaging readiness"
+  default_prompt: "Use $app-init to read the AirHealth PRD when available, the latest mobile feature design, and the latest architecture spec, gather local iOS and Android environment context before any network call, initialize app artifact directories under SW/APP, and write the results to SW/APP/initialize.rpt."
