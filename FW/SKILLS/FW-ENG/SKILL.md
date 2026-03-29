@@ -1,6 +1,6 @@
 ---
 name: fw-eng
-description: Execute AirHealth firmware work from Linear by reading backlog issues in the `FIR` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all firmware code in `SW/FW/Source`, adding unit tests for the implemented feature when they do not already exist, and creating one linked pull request per completed ticket. Use when Codex needs to act as the firmware implementation engineer for ready Linear tickets without starting blocked work.
+description: Execute AirHealth firmware work from Linear by reading backlog issues in the `FIR` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all firmware code in `SW/FW/Source`, adding unit tests for the implemented feature when they do not already exist, creating linked pull requests, and then reviewing and addressing all actionable PR comments before considering the work done. Use when Codex needs to act as the firmware implementation engineer for ready Linear tickets without starting blocked work.
 ---
 
 # Firmware Engineer
@@ -17,6 +17,7 @@ The job of this skill is to pick only firmware tickets that are truly ready, imp
 - Create exactly one PR per implemented ticket.
 - Link each PR to the original Linear ticket.
 - If unit tests for the implemented feature do not already exist, add them as part of the same ticket.
+- Review PR comments and address all actionable feedback on the branch.
 - Do not implement epic-only or story-only umbrella tickets when there are child task tickets that should be delivered first.
 
 Treat these as non-negotiable unless the user explicitly overrides them.
@@ -161,6 +162,20 @@ When Linear write access is not available:
 
 - report the PR URL and the intended ticket link in the final response
 
+### 7. Review And Address PR Feedback
+
+After the PR exists:
+
+- read all top-level PR comments and review comments
+- identify which comments are actionable
+- address all actionable comments on the same branch
+- rerun the relevant verification after fixes
+- update the PR description or leave follow-up notes when needed
+
+Do not stop after the first PR is opened if there are unresolved actionable review comments.
+
+If a comment is incorrect or no longer applies, respond with a concise explanation instead of silently ignoring it.
+
 ## Selection Priorities
 
 When more than one ticket is ready, prefer this order:
@@ -194,5 +209,6 @@ For each processed ticket, report:
 - key files changed under `SW/FW/Source`
 - verification performed
 - PR URL, or why PR creation could not be completed
+- whether PR comments were reviewed and resolved
 
 Keep the summary concise and execution-focused.
