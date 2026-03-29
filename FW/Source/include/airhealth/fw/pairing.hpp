@@ -76,6 +76,19 @@ class InMemoryClaimStore final : public ClaimStore {
   ClaimState state_ {};
 };
 
+class FileClaimStore final : public ClaimStore {
+ public:
+  explicit FileClaimStore(std::string storage_path);
+
+  [[nodiscard]] ClaimState load() const override;
+  void save(const ClaimState& state) override;
+
+  [[nodiscard]] const std::string& storage_path() const;
+
+ private:
+  std::string storage_path_;
+};
+
 class ClaimService {
  public:
   ClaimService(std::string device_identity, ClaimStore& store);
@@ -107,5 +120,23 @@ class ClaimService {
 [[nodiscard]] std::string device_info_to_payload_json(
     const DeviceInfo& device_info
 );
+
+[[nodiscard]] std::string claim_begin_result_to_payload_json(
+    const ClaimBeginResult& result
+);
+
+class PairingRpcService {
+ public:
+  PairingRpcService(DeviceInfo device_info, ClaimService& claim_service);
+
+  [[nodiscard]] std::string handle_method(
+      const std::string& method,
+      const std::string& claim_challenge = ""
+  ) const;
+
+ private:
+  DeviceInfo device_info_;
+  ClaimService& claim_service_;
+};
 
 }  // namespace airhealth::fw

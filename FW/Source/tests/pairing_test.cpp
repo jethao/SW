@@ -1,6 +1,7 @@
 #include "airhealth/fw/pairing.hpp"
 
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -11,7 +12,9 @@ using airhealth::fw::ConsumerCapabilities;
 using airhealth::fw::DeviceInfo;
 using airhealth::fw::ClaimError;
 using airhealth::fw::ClaimService;
+using airhealth::fw::FileClaimStore;
 using airhealth::fw::InMemoryClaimStore;
+using airhealth::fw::PairingRpcService;
 using airhealth::fw::claim_error_to_string;
 using airhealth::fw::device_info_to_payload_json;
 using airhealth::fw::is_protocol_major_supported;
@@ -77,6 +80,11 @@ void test_device_info_payload_is_stable() {
   );
 }
 
+std::filesystem::path make_claim_store_path() {
+  return std::filesystem::temp_directory_path() /
+      "airhealth-claim-store-test.txt";
+}
+
 void test_claim_begin_succeeds_and_persists() {
   InMemoryClaimStore store;
   ClaimService claim_service("DEVICE-123", store);
@@ -121,6 +129,105 @@ void test_claim_begin_rejects_invalid_or_repeat_attempts() {
          "claim state should survive service re-creation");
 }
 
+void test_file_claim_store_survives_reboot() {
+  const auto store_path = make_claim_store_path();
+  std::filesystem::remove(store_path);
+
+  FileClaimStore first_store(store_path.string());
+  ClaimService first_boot("DEVICE-789", first_store);
+
+  const auto first_claim = first_boot.begin_claim("challenge-4");
+  expect(first_claim.ok(), "first boot should persist a successful claim");
+
+  FileClaimStore second_store(store_path.string());
+  ClaimService second_boot("DEVICE-789", second_store);
+
+  const auto persisted = second_boot.load_claim_state();
+  expect(persisted.claimed, "file-backed claim store should survive reboot");
+  expect(persisted.device_identity == "DEVICE-789",
+         "rebooted load should retain device identity");
+  expect(persisted.claim_proof == first_claim.claim_proof.proof,
+         "rebooted load should retain the emitted proof");
+
+  const auto duplicate = second_boot.begin_claim("challenge-5");
+  expect(!duplicate.ok(), "repeated claim should fail after reboot");
+  expect(claim_error_to_string(duplicate.error) == "already_claimed",
+         "rebooted duplicate claim should use deterministic fault codes");
+
+  std::filesystem::remove(store_path);
+}
+
+void test_pairing_rpc_service_device_info_contract() {
+  InMemoryClaimStore store;
+  ClaimService claim_service("DEVICE-123", store);
+  const auto device_info = make_device_info("AH-REV-C", true);
+  const PairingRpcService rpc_service(device_info, claim_service);
+
+  const auto payload = rpc_service.handle_method("device.info.get");
+
+  expect(
+      payload ==
+          "{\"ok\":true,\"method\":\"device.info.get\",\"result\":"
+          "{\"protocol_version\":\"1.0.0\",\"protocol_major\":1,"
+          "\"protocol_minor\":0,\"protocol_patch\":0,"
+          "\"hardware_revision\":\"AH-REV-C\","
+          "\"supported_modes\":[\"oral_health\",\"fat_burning\"],"
+          "\"ota_supported\":true,"
+          "\"consumer_capabilities\":{\"claim_required\":true,"
+          "\"session_resume_supported\":true,"
+          "\"power_state_reporting_supported\":true}}}",
+      "device.info.get handler should expose the transport-facing contract"
+  );
+}
+
+void test_pairing_rpc_service_claim_begin_contract() {
+  const auto store_path = make_claim_store_path();
+  std::filesystem::remove(store_path);
+
+  FileClaimStore store(store_path.string());
+  ClaimService claim_service("DEVICE-321", store);
+  const PairingRpcService rpc_service(
+      make_device_info("AH-REV-D", true),
+      claim_service
+  );
+
+  const auto success = rpc_service.handle_method(
+      "device.claim.begin",
+      "challenge-6"
+  );
+  const auto persisted = claim_service.load_claim_state();
+
+  expect(
+      success ==
+          "{\"ok\":true,\"method\":\"device.claim.begin\",\"result\":{"
+          "\"device_identity\":\"DEVICE-321\","
+          "\"challenge\":\"challenge-6\","
+          "\"proof\":\"" +
+              persisted.claim_proof + "\"}}",
+      "device.claim.begin handler should return the firmware contract payload"
+  );
+
+  FileClaimStore rebooted_store(store_path.string());
+  ClaimService rebooted_claim_service("DEVICE-321", rebooted_store);
+  const PairingRpcService rebooted_rpc_service(
+      make_device_info("AH-REV-D", true),
+      rebooted_claim_service
+  );
+
+  const auto duplicate = rebooted_rpc_service.handle_method(
+      "device.claim.begin",
+      "challenge-7"
+  );
+  expect(
+      duplicate ==
+          "{\"ok\":false,\"method\":\"device.claim.begin\","
+          "\"error\":\"already_claimed\"}",
+      "device.claim.begin handler should report stable duplicate-claim faults"
+  );
+
+  std::filesystem::remove(store_path);
+}
+
 }  // namespace
 
 int main() {
@@ -130,6 +237,9 @@ int main() {
     test_device_info_payload_is_stable();
     test_claim_begin_succeeds_and_persists();
     test_claim_begin_rejects_invalid_or_repeat_attempts();
+    test_file_claim_store_survives_reboot();
+    test_pairing_rpc_service_device_info_contract();
+    test_pairing_rpc_service_claim_begin_contract();
   } catch (const std::exception& error) {
     std::cerr << "pairing_test failed: " << error.what() << "\n";
     return EXIT_FAILURE;

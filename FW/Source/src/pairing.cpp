@@ -1,11 +1,16 @@
 #include "airhealth/fw/pairing.hpp"
 
+#include <cstdint>
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
 
 namespace airhealth::fw {
 
 namespace {
+
+constexpr const char* kDeviceInfoGetMethod = "device.info.get";
+constexpr const char* kClaimBeginMethod = "device.claim.begin";
 
 const char* mode_to_string(ConsumerMode mode) {
   switch (mode) {
@@ -20,6 +25,19 @@ const char* mode_to_string(ConsumerMode mode) {
 
 std::string bool_to_json(bool value) {
   return value ? "true" : "false";
+}
+
+std::string json_string(const std::string& value) {
+  std::ostringstream out;
+  out << "\"";
+  for (char c : value) {
+    if (c == '"' || c == '\\') {
+      out << '\\';
+    }
+    out << c;
+  }
+  out << "\"";
+  return out.str();
 }
 
 std::string to_hex(std::uint64_t value) {
@@ -73,6 +91,47 @@ ClaimState InMemoryClaimStore::load() const {
 
 void InMemoryClaimStore::save(const ClaimState& state) {
   state_ = state;
+}
+
+FileClaimStore::FileClaimStore(std::string storage_path)
+    : storage_path_(std::move(storage_path)) {}
+
+ClaimState FileClaimStore::load() const {
+  std::ifstream input(storage_path_);
+  if (!input.is_open()) {
+    return {};
+  }
+
+  ClaimState state {};
+  std::string claimed_line;
+  if (!std::getline(input, claimed_line)) {
+    return {};
+  }
+
+  state.claimed = claimed_line == "1";
+  if (!std::getline(input, state.device_identity)) {
+    state.device_identity.clear();
+  }
+  if (!std::getline(input, state.claim_proof)) {
+    state.claim_proof.clear();
+  }
+
+  return state;
+}
+
+void FileClaimStore::save(const ClaimState& state) {
+  std::ofstream output(storage_path_, std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("Unable to open claim store for write");
+  }
+
+  output << (state.claimed ? "1" : "0") << "\n"
+         << state.device_identity << "\n"
+         << state.claim_proof << "\n";
+}
+
+const std::string& FileClaimStore::storage_path() const {
+  return storage_path_;
 }
 
 ClaimService::ClaimService(std::string device_identity, ClaimStore& store)
@@ -133,12 +192,14 @@ std::string claim_error_to_string(ClaimError error) {
 std::string device_info_to_payload_json(const DeviceInfo& device_info) {
   std::ostringstream out;
   out << "{"
-      << "\"protocol_version\":\"" << device_info.protocol_version.to_string()
-      << "\","
+      << "\"protocol_version\":"
+      << json_string(device_info.protocol_version.to_string())
+      << ","
       << "\"protocol_major\":" << device_info.protocol_version.major << ","
       << "\"protocol_minor\":" << device_info.protocol_version.minor << ","
       << "\"protocol_patch\":" << device_info.protocol_version.patch << ","
-      << "\"hardware_revision\":\"" << device_info.hardware_revision << "\","
+      << "\"hardware_revision\":"
+      << json_string(device_info.hardware_revision) << ","
       << "\"supported_modes\":[";
 
   for (std::size_t index = 0; index < device_info.supported_modes.size();
@@ -146,7 +207,7 @@ std::string device_info_to_payload_json(const DeviceInfo& device_info) {
     if (index > 0) {
       out << ",";
     }
-    out << "\"" << mode_to_string(device_info.supported_modes[index]) << "\"";
+    out << json_string(mode_to_string(device_info.supported_modes[index]));
   }
 
   out << "],"
@@ -168,6 +229,75 @@ std::string device_info_to_payload_json(const DeviceInfo& device_info) {
       << "}";
 
   return out.str();
+}
+
+std::string claim_begin_result_to_payload_json(const ClaimBeginResult& result) {
+  std::ostringstream out;
+
+  if (!result.ok()) {
+    out << "{"
+        << "\"ok\":false,"
+        << "\"error\":" << json_string(claim_error_to_string(result.error))
+        << "}";
+    return out.str();
+  }
+
+  out << "{"
+      << "\"ok\":true,"
+      << "\"result\":{"
+      << "\"device_identity\":"
+      << json_string(result.claim_proof.device_identity) << ","
+      << "\"challenge\":"
+      << json_string(result.claim_proof.challenge) << ","
+      << "\"proof\":" << json_string(result.claim_proof.proof)
+      << "}"
+      << "}";
+  return out.str();
+}
+
+PairingRpcService::PairingRpcService(
+    DeviceInfo device_info,
+    ClaimService& claim_service
+)
+    : device_info_(std::move(device_info)), claim_service_(claim_service) {}
+
+std::string PairingRpcService::handle_method(
+    const std::string& method,
+    const std::string& claim_challenge
+) const {
+  if (method == kDeviceInfoGetMethod) {
+    return "{"
+           "\"ok\":true,"
+           "\"method\":\"device.info.get\","
+           "\"result\":" +
+        device_info_to_payload_json(device_info_) + "}";
+  }
+
+  if (method == kClaimBeginMethod) {
+    const ClaimBeginResult result = claim_service_.begin_claim(claim_challenge);
+
+    if (!result.ok()) {
+      return "{"
+             "\"ok\":false,"
+             "\"method\":\"device.claim.begin\","
+             "\"error\":" +
+          json_string(claim_error_to_string(result.error)) + "}";
+    }
+
+    return "{"
+           "\"ok\":true,"
+           "\"method\":\"device.claim.begin\","
+           "\"result\":{"
+           "\"device_identity\":" +
+        json_string(result.claim_proof.device_identity) +
+        ",\"challenge\":" + json_string(result.claim_proof.challenge) +
+        ",\"proof\":" + json_string(result.claim_proof.proof) + "}}";
+  }
+
+  return "{"
+         "\"ok\":false,"
+         "\"method\":" +
+      json_string(method) + ",\"error\":\"unknown_method\"}";
 }
 
 }  // namespace airhealth::fw
