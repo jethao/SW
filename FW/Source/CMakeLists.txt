@@ -15,6 +15,7 @@ add_library(airhealth_fw_pairing
   src/fat.cpp
   src/session_journal.cpp
   src/led_button.cpp
+  src/routing.cpp
 )
 
 target_include_directories(airhealth_fw_pairing
@@ -94,6 +95,15 @@ target_link_libraries(session_journal_test
     airhealth_fw_pairing
 )
 
+add_executable(routing_test
+  tests/routing_test.cpp
+)
+
+target_link_libraries(routing_test
+  PRIVATE
+    airhealth_fw_pairing
+)
+
 enable_testing()
 
 add_test(
@@ -134,4 +144,9 @@ add_test(
 add_test(
   NAME session_journal_test
   COMMAND session_journal_test
+)
+
+add_test(
+  NAME routing_test
+  COMMAND routing_test
 )
