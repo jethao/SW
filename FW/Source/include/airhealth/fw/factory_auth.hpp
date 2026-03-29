@@ -33,6 +33,19 @@ struct FactoryEntryDecision {
   std::string reason_code;
 };
 
+struct FactoryProvisioningState {
+  bool hardware_check_completed = false;
+  bool hardware_check_passed = false;
+  bool provisioning_locked = false;
+};
+
+struct FactoryCheckDecision {
+  bool executed = false;
+  bool passed = false;
+  bool lockout_active = false;
+  std::string reason_code;
+};
+
 class FactoryAuthorizationService {
  public:
   explicit FactoryAuthorizationService(std::string expected_token);
@@ -58,6 +71,57 @@ class FactoryModeController {
 
  private:
   bool active_ = false;
+};
+
+class FactoryProvisioningStore {
+ public:
+  virtual ~FactoryProvisioningStore() = default;
+
+  [[nodiscard]] virtual FactoryProvisioningState load() const = 0;
+  virtual void save(const FactoryProvisioningState& state) = 0;
+};
+
+class InMemoryFactoryProvisioningStore final : public FactoryProvisioningStore {
+ public:
+  [[nodiscard]] FactoryProvisioningState load() const override;
+  void save(const FactoryProvisioningState& state) override;
+
+ private:
+  FactoryProvisioningState state_ {};
+};
+
+class FileFactoryProvisioningStore final : public FactoryProvisioningStore {
+ public:
+  explicit FileFactoryProvisioningStore(std::string storage_path);
+
+  [[nodiscard]] FactoryProvisioningState load() const override;
+  void save(const FactoryProvisioningState& state) override;
+
+  [[nodiscard]] const std::string& storage_path() const;
+
+ private:
+  std::string storage_path_;
+};
+
+class FactoryProvisioningController {
+ public:
+  explicit FactoryProvisioningController(FactoryProvisioningStore& store);
+
+  [[nodiscard]] FactoryCheckDecision run_hardware_check(
+      bool authorization_granted,
+      bool hardware_check_passed
+  );
+
+  [[nodiscard]] FactoryEntryDecision evaluate_entry(
+      ButtonIntent intent,
+      bool authorization_granted
+  );
+
+  [[nodiscard]] FactoryProvisioningState load_state() const;
+
+ private:
+  FactoryProvisioningStore& store_;
+  FactoryModeController mode_controller_ {};
 };
 
 [[nodiscard]] std::string factory_access_error_to_string(
