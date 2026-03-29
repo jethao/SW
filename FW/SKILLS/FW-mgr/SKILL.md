@@ -11,7 +11,7 @@ The purpose of this skill is to coordinate the firmware loop safely:
 
 1. select only ready firmware tickets with no unresolved blockers
 2. invoke `FW-ENG` to implement and open PRs for ready tickets
-3. invoke `FW-CR` to review live PRs against their linked `FIR` tickets
+3. wait for PRs to complete, then invoke `FW-CR` to review live PRs against their linked `FIR` tickets
 4. alternate `FW-ENG` and `FW-CR` until each active PR has no remaining actionable review findings
 5. generate a report from the PR review history
 6. continue advancing only tickets that still have no unresolved blockers or dependency gaps
