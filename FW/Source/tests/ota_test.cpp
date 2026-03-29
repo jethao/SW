@@ -27,23 +27,33 @@ OtaManifest make_manifest() {
   };
 }
 
+OtaManifest make_resume_manifest() {
+  return OtaManifest {
+      .image_id = "ota-image-resume",
+      .total_size_bytes = 10,
+      .chunk_size_bytes = 4,
+  };
+}
+
 void test_chunk_progress_accumulates_until_complete() {
   OtaChunkReceiver receiver;
   receiver.begin(make_manifest());
 
   const auto first = receiver.ingest(OtaChunk {
       .index = 0,
-      .payload = "chunk0",
+      .payload = std::string(256, 'A'),
   });
   expect(first.received_chunks == 1 && first.total_chunks == 4,
          "first chunk should report partial OTA progress");
 
-  static_cast<void>(receiver.ingest(OtaChunk {.index = 1, .payload = "chunk1"}));
-  static_cast<void>(receiver.ingest(OtaChunk {.index = 2, .payload = "chunk2"}));
-  const auto final = receiver.ingest(OtaChunk {.index = 3, .payload = "chunk3"});
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 1, .payload = std::string(256, 'B')}));
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 2, .payload = std::string(256, 'C')}));
+  const auto final = receiver.ingest(OtaChunk {.index = 3, .payload = std::string(256, 'D')});
   expect(receiver.complete(), "receiver should report complete after all chunks");
   expect(final.reason_code == "transfer_complete",
          "last chunk should mark transfer complete");
+  expect(receiver.staged_image().size() == 1024,
+         "complete OTA image should be retained for handoff");
 }
 
 void test_out_of_range_chunks_are_rejected() {
@@ -56,6 +66,41 @@ void test_out_of_range_chunks_are_rejected() {
   });
   expect(result.reason_code == "chunk_out_of_range",
          "invalid chunk indexes should be rejected deterministically");
+}
+
+void test_malformed_chunk_sizes_are_rejected() {
+  OtaChunkReceiver receiver;
+  receiver.begin(make_manifest());
+
+  const auto result = receiver.ingest(OtaChunk {
+      .index = 0,
+      .payload = "too-short",
+  });
+  expect(result.reason_code == "chunk_size_mismatch",
+         "invalid chunk sizes should fail with a stable reason");
+  expect(!receiver.has_chunk(0),
+         "malformed chunks must not be retained as staged data");
+}
+
+void test_interrupted_transfer_can_resume_with_retained_chunks() {
+  OtaChunkReceiver receiver;
+  receiver.begin(make_resume_manifest());
+
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 0, .payload = "ABCD"}));
+  static_cast<void>(receiver.ingest(OtaChunk {.index = 2, .payload = "IJ"}));
+  expect(!receiver.complete(), "transfer should remain incomplete with a gap");
+  expect(receiver.has_chunk(0) && receiver.has_chunk(2),
+         "receiver should retain earlier chunks across an interrupted transfer");
+
+  const auto resumed = receiver.ingest(OtaChunk {.index = 0, .payload = "ABCD"});
+  expect(resumed.reason_code == "chunk_resumed",
+         "duplicate chunk upload during resume should be idempotent");
+
+  const auto completed = receiver.ingest(OtaChunk {.index = 1, .payload = "EFGH"});
+  expect(completed.reason_code == "transfer_complete",
+         "supplying the missing chunk should complete the resumed transfer");
+  expect(receiver.staged_image() == "ABCDEFGHIJ",
+         "staged OTA image should be assembled in chunk order after resume");
 }
 
 void test_progress_json_is_stable() {
@@ -78,6 +123,8 @@ int main() {
   try {
     test_chunk_progress_accumulates_until_complete();
     test_out_of_range_chunks_are_rejected();
+    test_malformed_chunk_sizes_are_rejected();
+    test_interrupted_transfer_can_resume_with_retained_chunks();
     test_progress_json_is_stable();
   } catch (const std::exception& error) {
     std::cerr << "ota_test failed: " << error.what() << "\n";

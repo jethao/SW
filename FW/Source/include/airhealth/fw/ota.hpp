@@ -30,10 +30,13 @@ class OtaChunkReceiver {
   void begin(const OtaManifest& manifest);
   [[nodiscard]] OtaProgress ingest(const OtaChunk& chunk);
   [[nodiscard]] bool complete() const;
+  [[nodiscard]] bool has_chunk(std::size_t index) const;
+  [[nodiscard]] std::string staged_image() const;
 
  private:
   OtaManifest manifest_ {};
   std::vector<bool> received_ {};
+  std::vector<std::string> chunks_ {};
 };
 
 [[nodiscard]] std::string ota_progress_to_json(const OtaProgress& progress);
