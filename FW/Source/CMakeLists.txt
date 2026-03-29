@@ -14,6 +14,7 @@ add_library(airhealth_fw_pairing
   src/low_power.cpp
   src/fat.cpp
   src/session_journal.cpp
+  src/led_button.cpp
 )
 
 target_include_directories(airhealth_fw_pairing
@@ -75,6 +76,15 @@ target_link_libraries(fat_test
     airhealth_fw_pairing
 )
 
+add_executable(led_button_test
+  tests/led_button_test.cpp
+)
+
+target_link_libraries(led_button_test
+  PRIVATE
+    airhealth_fw_pairing
+)
+
 add_executable(session_journal_test
   tests/session_journal_test.cpp
 )
@@ -114,6 +124,11 @@ add_test(
 add_test(
   NAME fat_test
   COMMAND fat_test
+)
+
+add_test(
+  NAME led_button_test
+  COMMAND led_button_test
 )
 
 add_test(

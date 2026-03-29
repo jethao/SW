@@ -20,6 +20,27 @@ std::string json_string(const std::string& value) {
   return out.str();
 }
 
+void require_fat_summary_ready(
+    const SessionSnapshot& snapshot,
+    const FatLoopDecision& decision
+) {
+  if (!snapshot.has_context || snapshot.context.mode != SessionMode::FatBurning) {
+    throw std::invalid_argument("Fat summary payload requires a fat session");
+  }
+
+  if (snapshot.state != SessionState::Complete) {
+    throw std::invalid_argument(
+        "Fat summary payload requires a completed finish path"
+    );
+  }
+
+  if (!decision.baseline_locked || decision.valid_reading_count <= 0) {
+    throw std::invalid_argument(
+        "Fat summary payload requires a locked baseline and valid readings"
+    );
+  }
+}
+
 }  // namespace
 
 void FatReadingLoop::reset() {
@@ -114,6 +135,78 @@ std::string fat_loop_decision_to_json(const FatLoopDecision& decision) {
       << "\"valid_reading_count\":" << decision.valid_reading_count << ","
       << "\"step_name\":" << json_string(decision.step_name) << ","
       << "\"reason_code\":" << json_string(decision.reason_code)
+      << "}";
+  return out.str();
+}
+
+FatSummaryPayload make_fat_summary_payload(
+    const SessionSnapshot& snapshot,
+    const FatLoopDecision& decision,
+    std::string produced_at,
+    BatteryState battery,
+    std::string algorithm_version
+) {
+  require_fat_summary_ready(snapshot, decision);
+
+  auto result = make_session_result(
+      snapshot,
+      std::move(produced_at),
+      "fat_summary_ready",
+      battery,
+      QualityGates {
+          .sample_valid = true,
+          .warmup_ready = true,
+          .motion_stable = true,
+      },
+      std::move(algorithm_version)
+  );
+
+  return FatSummaryPayload {
+      .result = std::move(result),
+      .final_delta_percent = decision.current_delta_percent,
+      .best_delta_percent = decision.best_delta_percent,
+      .reading_count = decision.valid_reading_count,
+  };
+}
+
+std::string fat_summary_to_payload_json(const FatSummaryPayload& payload) {
+  std::ostringstream out;
+  out << "{"
+      << "\"session_id\":" << json_string(payload.result.session_id) << ","
+      << "\"mode\":" << json_string(session_mode_to_string(payload.result.mode))
+      << ","
+      << "\"terminal_state\":"
+      << json_string(session_state_to_string(payload.result.terminal_state))
+      << ","
+      << "\"produced_at\":" << json_string(payload.result.produced_at) << ","
+      << "\"terminal_reason\":"
+      << json_string(payload.result.terminal_reason) << ","
+      << "\"battery\":{"
+      << "\"percent\":" << payload.result.battery.percent << ","
+      << "\"charging\":"
+      << (payload.result.battery.charging ? "true" : "false") << ","
+      << "\"low_power\":"
+      << (payload.result.battery.low_power ? "true" : "false") << "},"
+      << "\"quality_gates\":{"
+      << "\"sample_valid\":"
+      << (payload.result.quality_gates.sample_valid ? "true" : "false") << ","
+      << "\"warmup_ready\":"
+      << (payload.result.quality_gates.warmup_ready ? "true" : "false") << ","
+      << "\"motion_stable\":"
+      << (payload.result.quality_gates.motion_stable ? "true" : "false")
+      << "},"
+      << "\"algorithm_version\":"
+      << json_string(payload.result.algorithm_version) << ","
+      << "\"routing\":{"
+      << "\"hardware_profile\":"
+      << json_string(payload.result.routing.hardware_profile) << ","
+      << "\"voc_profile\":"
+      << json_string(payload.result.routing.voc_profile) << "},"
+      << "\"fat_summary\":{"
+      << "\"final_delta_percent\":" << payload.final_delta_percent << ","
+      << "\"best_delta_percent\":" << payload.best_delta_percent << ","
+      << "\"reading_count\":" << payload.reading_count
+      << "}"
       << "}";
   return out.str();
 }
