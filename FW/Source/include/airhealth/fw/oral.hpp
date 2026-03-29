@@ -23,6 +23,21 @@ struct OralGateDecision {
   std::string reason_code;
 };
 
+struct OralScoreInputs {
+  double oral_score = 0.0;
+  std::string score_band;
+  int stable_frame_count = 0;
+  int rejected_sample_count = 0;
+};
+
+struct OralResultPayload {
+  SessionResultEnvelope result {};
+  double oral_score = 0.0;
+  std::string score_band;
+  int stable_frame_count = 0;
+  int rejected_sample_count = 0;
+};
+
 class OralWarmupGate {
  public:
   explicit OralWarmupGate(OralGateConfig config = {});
@@ -42,6 +57,19 @@ class OralWarmupGate {
     std::string occurred_at,
     BatteryState battery,
     std::string algorithm_version
+);
+
+[[nodiscard]] OralResultPayload make_oral_result_payload(
+    const SessionSnapshot& snapshot,
+    const OralGateDecision& decision,
+    std::string produced_at,
+    BatteryState battery,
+    std::string algorithm_version,
+    OralScoreInputs score_inputs
+);
+
+[[nodiscard]] std::string oral_result_to_payload_json(
+    const OralResultPayload& payload
 );
 
 }  // namespace airhealth::fw
