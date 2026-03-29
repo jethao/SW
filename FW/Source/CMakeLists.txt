@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(airhealth_fw_pairing
   src/pairing.cpp
+  src/session.cpp
 )
 
 target_include_directories(airhealth_fw_pairing
@@ -24,9 +25,23 @@ target_link_libraries(pairing_test
     airhealth_fw_pairing
 )
 
+add_executable(session_test
+  tests/session_test.cpp
+)
+
+target_link_libraries(session_test
+  PRIVATE
+    airhealth_fw_pairing
+)
+
 enable_testing()
 
 add_test(
   NAME pairing_test
   COMMAND pairing_test
+)
+
+add_test(
+  NAME session_test
+  COMMAND session_test
 )
