@@ -75,6 +75,12 @@ export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
 export ZEPHYR_SDK_INSTALL_DIR="$PWD/SW/FW/vendor-sdk/zephyr-sdk-0.17.4"
 ```
 
+Important:
+
+- run these commands from the AirHealth repo root so `$PWD/SW/FW/...` resolves correctly
+- keep `SW/FW/vendor-sdk/.venv-fw-init/bin` at the front of `PATH` so `west`, `cmake`, and Zephyr board-discovery scripts use the repo-local Python environment
+- this avoids configure failures such as `ModuleNotFoundError: No module named 'pykwalify'`
+
 ### 4. Verify environment health
 
 Open:
@@ -120,6 +126,19 @@ export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
 export ZEPHYR_SDK_INSTALL_DIR="$PWD/SW/FW/vendor-sdk/zephyr-sdk-0.17.4"
 cd SW/FW/vendor-sdk/nordic/ncs
 west build -p always -b nrf5340dk/nrf5340/cpuapp ../../../Source/app -d ../../../Source/app/build-nrf5340dk
+```
+
+Equivalent absolute-path form:
+
+```bash
+cd /Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/nordic/ncs
+PATH=/Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/.venv-fw-init/bin:$PATH \
+ZEPHYR_TOOLCHAIN_VARIANT=zephyr \
+ZEPHYR_SDK_INSTALL_DIR=/Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/zephyr-sdk-0.17.4 \
+/Users/haohua/coding/AirHealth/SW/FW/vendor-sdk/.venv-fw-init/bin/west build -p always \
+  -b nrf5340dk/nrf5340/cpuapp \
+  /Users/haohua/coding/AirHealth/SW/FW/Source/app \
+  -d /Users/haohua/coding/AirHealth/SW/FW/Source/app/build-nrf5340dk
 ```
 
 Expected build outputs:
@@ -206,3 +225,5 @@ ctest --test-dir SW/FW/Source/build --output-on-failure
 cd SW/FW/vendor-sdk/nordic/ncs
 west build -p always -b nrf5340dk/nrf5340/cpuapp ../../../Source/app -d ../../../Source/app/build-nrf5340dk
 ```
+
+If you run from inside `SW/FW` instead of the AirHealth repo root, the relative `$PWD/SW/FW/...` exports will be wrong and the board build may fail during configure.
