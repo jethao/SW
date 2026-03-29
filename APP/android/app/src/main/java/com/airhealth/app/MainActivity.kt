@@ -71,6 +71,9 @@ class MainActivity : AppCompatActivity() {
             addView(
                 caption("Current route ID: feature_hub/${context.feature.routeId}")
             )
+            addView(
+                bodyCopy("Selecting one action acquires the global action lock until that flow resolves.")
+            )
 
             FeatureAction.entries.forEach { action ->
                 addView(
@@ -103,8 +106,35 @@ class MainActivity : AppCompatActivity() {
                     "This child route inherits the ${context.feature.title} context and preserves return-to-feature behavior."
                 )
             )
+            addView(
+                bodyCopy(
+                    "Active action lock: ${routeState.activeManagedAction()?.title ?: action.title}"
+                )
+            )
             addView(bodyCopy("Selected feature: ${context.feature.title}"))
             addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+
+            routeState.lastBlockedActionAttempt?.let { blockedAttempt ->
+                addView(
+                    headline("Blocked action")
+                )
+                addView(bodyCopy(blockedAttempt.message))
+                addView(caption("Reason code: ${blockedAttempt.reasonCode.code}"))
+            }
+
+            addView(headline("Other entry points remain locked"))
+            FeatureAction.entries.forEach { candidate ->
+                if (candidate == action) {
+                    addView(caption("Current flow: ${candidate.title}"))
+                } else {
+                    addView(
+                        secondaryButton("Try ${candidate.title}") {
+                            routeState.openAction(candidate)
+                            renderRoute()
+                        }
+                    )
+                }
+            }
 
             addView(
                 actionButton("Return To ${context.feature.title}") {

@@ -55,25 +55,8 @@ struct SelectedFeatureContext {
     let lastVisitedRouteID: String
 }
 
-private enum AppRoute {
-    case home
-    case featureHub(SelectedFeatureContext)
-    case featureAction(SelectedFeatureContext, FeatureAction)
-
-    var routeID: String {
-        switch self {
-        case .home:
-            return "home"
-        case let .featureHub(context):
-            return "feature_hub/\(context.feature.rawValue)"
-        case let .featureAction(context, action):
-            return "feature_hub/\(context.feature.rawValue)/\(action.rawValue)"
-        }
-    }
-}
-
 struct AppShellView: View {
-    @State private var route: AppRoute = .home
+    @StateObject private var store = AppShellStore()
 
     var body: some View {
         NavigationStack {
@@ -84,50 +67,44 @@ struct AppShellView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch route {
+        switch store.route {
         case .home:
             FeatureHubHomeView(
                 onSelectFeature: { feature in
-                    route = .featureHub(
-                        SelectedFeatureContext(
-                            feature: feature,
-                            lastVisitedRouteID: "home"
-                        )
-                    )
+                    store.openFeature(feature)
                 }
             )
         case let .featureHub(context):
             FeatureActionsView(
                 context: context,
                 onSelectAction: { action in
-                    route = .featureAction(
-                        SelectedFeatureContext(
-                            feature: context.feature,
-                            lastVisitedRouteID: "feature_hub/\(context.feature.rawValue)"
-                        ),
-                        action
-                    )
+                    store.openAction(action)
                 },
                 onReturnHome: {
-                    route = .home
+                    store.returnHome()
                 }
             )
         case let .featureAction(context, action):
             FeatureActionDestinationView(
                 context: context,
                 action: action,
+                activeAction: store.activeManagedAction,
+                blockedAttempt: store.lastBlockedActionAttempt,
+                onTryAction: { candidate in
+                    store.openAction(candidate)
+                },
                 onReturnToFeature: {
-                    route = .featureHub(context)
+                    store.returnToFeature()
                 },
                 onReturnHome: {
-                    route = .home
+                    store.returnHome()
                 }
             )
         }
     }
 
     private var title: String {
-        switch route {
+        switch store.route {
         case .home:
             return "AirHealth"
         case let .featureHub(context):
@@ -191,6 +168,9 @@ private struct FeatureActionsView: View {
                 .font(.footnote.monospaced())
                 .foregroundStyle(.secondary)
 
+            Text("Selecting one action acquires the global action lock until that flow resolves.")
+                .foregroundStyle(.secondary)
+
             ForEach(FeatureAction.allCases) { action in
                 Button(action.title) {
                     onSelectAction(action)
@@ -212,6 +192,9 @@ private struct FeatureActionsView: View {
 private struct FeatureActionDestinationView: View {
     let context: SelectedFeatureContext
     let action: FeatureAction
+    let activeAction: ManagedAction?
+    let blockedAttempt: BlockedActionAttempt?
+    let onTryAction: (FeatureAction) -> Void
     let onReturnToFeature: () -> Void
     let onReturnHome: () -> Void
 
@@ -223,10 +206,39 @@ private struct FeatureActionDestinationView: View {
             Text("This child route inherits the \(context.feature.title) context and preserves return-to-feature behavior.")
                 .foregroundStyle(.secondary)
 
+            Text("Active action lock: \(activeAction?.title ?? action.title)")
+                .font(.headline)
+
             Text("Selected feature: \(context.feature.title)")
             Text("Return route ID: \(context.lastVisitedRouteID)")
                 .font(.footnote.monospaced())
                 .foregroundStyle(.secondary)
+
+            if let blockedAttempt {
+                Text("Blocked action")
+                    .font(.headline)
+                Text(blockedAttempt.message)
+                    .foregroundStyle(.secondary)
+                Text("Reason code: \(blockedAttempt.reasonCode.rawValue)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("Other entry points remain locked")
+                .font(.headline)
+
+            ForEach(FeatureAction.allCases) { candidate in
+                if candidate == action {
+                    Text("Current flow: \(candidate.title)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Button("Try \(candidate.title)") {
+                        onTryAction(candidate)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
 
             Button("Return To \(context.feature.title)") {
                 onReturnToFeature()
