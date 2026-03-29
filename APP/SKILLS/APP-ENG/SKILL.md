@@ -166,7 +166,7 @@ After the PR is open:
 Preferred behavior:
 
 - use the available GitHub review-request mechanism to request review from Codex on the PR
-- if a formal review request is unavailable, leave an explicit PR comment asking Codex to review the PR and report that fallback in the final summary
+- if a formal review request is unavailable, leave the explicit PR comment `@codex review` on the PR and report that fallback in the final summary
 
 ### 7. Update The Ticket
 
