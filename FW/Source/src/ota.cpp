@@ -1,5 +1,6 @@
 #include "airhealth/fw/ota.hpp"
 
+#include <cstdint>
 #include <sstream>
 #include <stdexcept>
 
@@ -52,12 +53,28 @@ std::size_t received_count(const std::vector<bool>& received) {
   return count;
 }
 
+std::string to_hex(std::uint64_t value) {
+  std::ostringstream out;
+  out << std::hex << value;
+  return out.str();
+}
+
+std::uint64_t fnv1a_64(const std::string& input) {
+  std::uint64_t hash = 1469598103934665603ULL;
+  for (unsigned char c : input) {
+    hash ^= c;
+    hash *= 1099511628211ULL;
+  }
+  return hash;
+}
+
 }  // namespace
 
 void OtaChunkReceiver::reset() {
   manifest_ = {};
   received_.clear();
   chunks_.clear();
+  pending_slot_.clear();
 }
 
 void OtaChunkReceiver::begin(const OtaManifest& manifest) {
@@ -65,6 +82,7 @@ void OtaChunkReceiver::begin(const OtaManifest& manifest) {
   const std::size_t total_chunks = total_chunks_for(manifest);
   received_.assign(total_chunks, false);
   chunks_.assign(total_chunks, "");
+  pending_slot_.clear();
 }
 
 OtaProgress OtaChunkReceiver::ingest(const OtaChunk& chunk) {
@@ -147,6 +165,62 @@ std::string OtaChunkReceiver::staged_image() const {
     assembled += chunk;
   }
   return assembled;
+}
+
+OtaApplyResult OtaChunkReceiver::stage_apply(const std::string& pending_slot) {
+  if (!complete()) {
+    return OtaApplyResult {
+        .applied = false,
+        .verified = false,
+        .pending_slot = "",
+        .reason_code = "transfer_incomplete",
+    };
+  }
+
+  if (pending_slot.empty()) {
+    return OtaApplyResult {
+        .applied = false,
+        .verified = false,
+        .pending_slot = "",
+        .reason_code = "invalid_pending_slot",
+    };
+  }
+
+  if (manifest_.image_digest.empty()) {
+    return OtaApplyResult {
+        .applied = false,
+        .verified = false,
+        .pending_slot = "",
+        .reason_code = "missing_manifest_digest",
+    };
+  }
+
+  const std::string assembled = staged_image();
+  const std::string computed_digest = ota_image_digest(assembled);
+  if (computed_digest != manifest_.image_digest) {
+    return OtaApplyResult {
+        .applied = false,
+        .verified = false,
+        .pending_slot = "",
+        .reason_code = "validation_failed",
+    };
+  }
+
+  pending_slot_ = pending_slot;
+  return OtaApplyResult {
+      .applied = true,
+      .verified = true,
+      .pending_slot = pending_slot_,
+      .reason_code = "apply_staged",
+  };
+}
+
+const std::string& OtaChunkReceiver::pending_slot() const {
+  return pending_slot_;
+}
+
+std::string ota_image_digest(const std::string& staged_image) {
+  return to_hex(fnv1a_64(staged_image));
 }
 
 std::string ota_progress_to_json(const OtaProgress& progress) {
