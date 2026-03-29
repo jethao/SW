@@ -57,7 +57,14 @@ class FeatureHubRouteState(
     var route: FeatureHubRoute = initialRoute
         private set
 
+    var actionLockState: ActionLockState = ActionLockState()
+        private set
+
+    val lastBlockedActionAttempt: BlockedActionAttempt?
+        get() = actionLockState.blockedAttempt
+
     fun openFeature(feature: FeatureKind) {
+        actionLockState = actionLockState.clearBlockedAttempt()
         route = FeatureHubRoute.Feature(
             SelectedFeatureContext(
                 feature = feature,
@@ -67,10 +74,19 @@ class FeatureHubRouteState(
     }
 
     fun openAction(action: FeatureAction) {
-        val currentFeatureRoute = route as? FeatureHubRoute.Feature ?: return
+        val currentContext = currentFeatureContext() ?: return
+        actionLockState = actionLockState.tryAcquire(
+            feature = currentContext.feature,
+            action = ManagedAction.fromFeatureAction(action),
+        )
+
+        if (actionLockState.blockedAttempt != null) {
+            return
+        }
+
         route = FeatureHubRoute.Action(
-            context = currentFeatureRoute.context.copy(
-                lastVisitedRouteId = currentFeatureRoute.routeId,
+            context = currentContext.copy(
+                lastVisitedRouteId = "feature_hub/${currentContext.feature.routeId}",
             ),
             action = action,
         )
@@ -78,10 +94,27 @@ class FeatureHubRouteState(
 
     fun returnToFeature() {
         val currentActionRoute = route as? FeatureHubRoute.Action ?: return
+        actionLockState = actionLockState.release()
         route = FeatureHubRoute.Feature(currentActionRoute.context)
     }
 
     fun returnHome() {
+        actionLockState = when (route) {
+            is FeatureHubRoute.Action -> actionLockState.release()
+            else -> actionLockState.clearBlockedAttempt()
+        }
         route = FeatureHubRoute.Home
+    }
+
+    fun activeManagedAction(): ManagedAction? {
+        return actionLockState.activeAction
+    }
+
+    private fun currentFeatureContext(): SelectedFeatureContext? {
+        return when (val currentRoute = route) {
+            is FeatureHubRoute.Feature -> currentRoute.context
+            is FeatureHubRoute.Action -> currentRoute.context
+            FeatureHubRoute.Home -> null
+        }
     }
 }
