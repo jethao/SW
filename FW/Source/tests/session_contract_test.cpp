@@ -130,6 +130,32 @@ void test_session_result_payload_carries_terminal_metadata() {
   );
 }
 
+void test_session_result_rejects_non_terminal_state() {
+  SessionOrchestrator orchestrator;
+  expect(
+      orchestrator.start_session(
+          make_context("session-rst-2", SessionMode::OralHealth)
+      ).ok(),
+      "session should start before invalid result generation check"
+  );
+
+  bool threw = false;
+  try {
+    static_cast<void>(make_session_result(
+        orchestrator.snapshot(),
+        "2026-03-28T19:31:30Z",
+        "should_not_emit",
+        {},
+        {},
+        "alg-1.2.0"
+    ));
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+
+  expect(threw, "session.result should reject non-terminal session states");
+}
+
 void test_session_contract_requires_context() {
   SessionOrchestrator orchestrator;
   bool threw = false;
@@ -156,6 +182,7 @@ int main() {
   try {
     test_session_event_payload_is_deterministic();
     test_session_result_payload_carries_terminal_metadata();
+    test_session_result_rejects_non_terminal_state();
     test_session_contract_requires_context();
   } catch (const std::exception& error) {
     std::cerr << "session_contract_test failed: " << error.what() << "\n";

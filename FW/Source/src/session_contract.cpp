@@ -30,6 +30,29 @@ void require_session_context(const SessionSnapshot& snapshot) {
   }
 }
 
+bool is_terminal_state(SessionState state) {
+  switch (state) {
+    case SessionState::Complete:
+    case SessionState::Canceled:
+    case SessionState::Failed:
+    case SessionState::Interrupted:
+    case SessionState::Reconciled:
+      return true;
+    case SessionState::Ready:
+    case SessionState::Active:
+      return false;
+  }
+
+  throw std::invalid_argument("Unsupported session state");
+}
+
+void require_terminal_session(const SessionSnapshot& snapshot) {
+  require_session_context(snapshot);
+  if (!is_terminal_state(snapshot.state)) {
+    throw std::invalid_argument("Session result requires terminal state");
+  }
+}
+
 }  // namespace
 
 SessionEventEnvelope make_session_event(
@@ -64,7 +87,7 @@ SessionResultEnvelope make_session_result(
     QualityGates quality_gates,
     std::string algorithm_version
 ) {
-  require_session_context(snapshot);
+  require_terminal_session(snapshot);
 
   return SessionResultEnvelope {
       .session_id = snapshot.context.session_id,
