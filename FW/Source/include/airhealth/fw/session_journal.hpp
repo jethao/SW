@@ -34,12 +34,14 @@ class SessionJournalStore {
 
   [[nodiscard]] virtual SessionJournalLoadResult load() const = 0;
   virtual void save(const SessionJournalEntry& entry) = 0;
+  virtual void clear() = 0;
 };
 
 class InMemorySessionJournalStore final : public SessionJournalStore {
  public:
   [[nodiscard]] SessionJournalLoadResult load() const override;
   void save(const SessionJournalEntry& entry) override;
+  void clear() override;
 
  private:
   bool present_ = false;
@@ -52,6 +54,7 @@ class FileSessionJournalStore final : public SessionJournalStore {
 
   [[nodiscard]] SessionJournalLoadResult load() const override;
   void save(const SessionJournalEntry& entry) override;
+  void clear() override;
 
   [[nodiscard]] const std::string& storage_path() const;
 
@@ -70,6 +73,41 @@ class FileSessionJournalStore final : public SessionJournalStore {
 
 [[nodiscard]] std::string session_journal_error_to_string(
     SessionJournalError error
+);
+
+enum class SessionReplayError {
+  None,
+  NotFound,
+  JournalCorrupt,
+  SessionIdMismatch,
+};
+
+struct SessionReplayResult {
+  SessionReplayError error = SessionReplayError::None;
+  SessionResultEnvelope replayed_result {};
+
+  [[nodiscard]] bool ok() const {
+    return error == SessionReplayError::None;
+  }
+};
+
+class SessionReplayService {
+ public:
+  explicit SessionReplayService(SessionJournalStore& store);
+
+  [[nodiscard]] SessionReplayResult query_by_session_id(
+      const std::string& session_id
+  ) const;
+  [[nodiscard]] SessionReplayError acknowledge_session_id(
+      const std::string& session_id
+  );
+
+ private:
+  SessionJournalStore& store_;
+};
+
+[[nodiscard]] std::string session_replay_error_to_string(
+    SessionReplayError error
 );
 
 }  // namespace airhealth::fw
