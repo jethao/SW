@@ -1,0 +1,4 @@
+interface:
+  display_name: "FW ENG"
+  short_description: "Implement ready FIR backlog tickets and open one PR per ticket"
+  default_prompt: "Use $fw-eng to read AirHealth FIR backlog tickets in Linear, select only unblocked ready tickets, implement them under SW/FW/Source, and create one linked pull request per completed ticket."

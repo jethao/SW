@@ -52,13 +52,18 @@ Environment overrides:
 - `AIRHEALTH_FW_SDK_DIR`: preferred SDK install or reuse path
 - `AIRHEALTH_FW_SDK_REF`: explicit vendor SDK tag, branch, or revision to install
 - `AIRHEALTH_FW_TOOLING_VENV`: local Python virtualenv path used for helper tooling such as `west`
+- `AIRHEALTH_FW_ALLOW_GLOBAL_SDK=1`: allow reusing a global SDK cache outside `SW/FW`
 - `FW_INIT_NO_INSTALL=1`: audit the environment and write the report without downloading an SDK
 
 Default install location:
 
-- `$HOME/.cache/airhealth/fw-sdk/nordic/ncs`
+- `SW/FW/vendor-sdk/nordic/ncs`
 
-The script should reuse an existing compatible SDK checkout when it finds one. It should not clone large SDK trees into the Git worktree unless the user explicitly asks for that.
+Default tooling virtualenv:
+
+- `SW/FW/vendor-sdk/.venv-fw-init`
+
+The script should prefer the repo-local SDK path so the firmware environment lives under `SW/FW`. The `vendor-sdk` folder is intended to be gitignored except for lightweight bootstrap files and documentation, so the full vendor SDK does not need to be committed to Git. Reuse a global SDK cache only when `AIRHEALTH_FW_ALLOW_GLOBAL_SDK=1` is set.
 
 ## Report Requirements
 

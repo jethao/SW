@@ -33,6 +33,9 @@ fi
 
 REPORT_PATH="${REPO_ROOT}/SW/FW/initialize.rpt"
 EE_SPEC_DIR="${REPO_ROOT}/HW/EE"
+DEFAULT_SDK_ROOT="${REPO_ROOT}/SW/FW/vendor-sdk/nordic/ncs"
+DEFAULT_TOOLING_VENV="${REPO_ROOT}/SW/FW/vendor-sdk/.venv-fw-init"
+ALLOW_GLOBAL_SDK="${AIRHEALTH_FW_ALLOW_GLOBAL_SDK:-0}"
 
 STATUS="PARTIAL"
 ERROR_MESSAGE=""
@@ -47,8 +50,8 @@ SDK_NAME="unknown"
 SDK_REPO=""
 SDK_REF="${AIRHEALTH_FW_SDK_REF:-}"
 SDK_SELECTED_REF=""
-SDK_ROOT="${AIRHEALTH_FW_SDK_DIR:-}"
-TOOLING_VENV="${AIRHEALTH_FW_TOOLING_VENV:-${HOME}/.cache/airhealth/fw-sdk/.venv-fw-init}"
+SDK_ROOT="${AIRHEALTH_FW_SDK_DIR:-${DEFAULT_SDK_ROOT}}"
+TOOLING_VENV="${AIRHEALTH_FW_TOOLING_VENV:-${DEFAULT_TOOLING_VENV}}"
 NO_INSTALL="${FW_INIT_NO_INSTALL:-0}"
 WEST_BIN=""
 SDK_PATH_FOUND=""
@@ -135,12 +138,11 @@ find_existing_sdk() {
     candidates+=("${SDK_ROOT}")
   fi
 
-  if [ "${MCU_VENDOR}" = "Nordic" ]; then
+  if [ "${MCU_VENDOR}" = "Nordic" ] && [ "${ALLOW_GLOBAL_SDK}" = "1" ]; then
     candidates+=(
       "${HOME}/.cache/airhealth/fw-sdk/nordic/ncs"
       "${HOME}/ncs"
       "${HOME}/.ncs"
-      "${REPO_ROOT}/SW/FW/vendor-sdk/nordic/ncs"
     )
   fi
 
@@ -269,10 +271,6 @@ install_nordic_sdk_if_needed() {
   fi
 
   discover_nordic_ref
-
-  if [ -z "${SDK_ROOT}" ]; then
-    SDK_ROOT="${HOME}/.cache/airhealth/fw-sdk/nordic/ncs"
-  fi
 
   mkdir -p "$(dirname "${SDK_ROOT}")"
 

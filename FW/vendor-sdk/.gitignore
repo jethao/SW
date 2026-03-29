@@ -1,0 +1,4 @@
+# Keep this bootstrap directory in Git, but ignore the installed SDK payload.
+*
+!.gitignore
+!README.md
