@@ -22,6 +22,13 @@ struct FatLoopDecision {
   std::string reason_code;
 };
 
+struct FatSummaryPayload {
+  SessionResultEnvelope result {};
+  double final_delta_percent = 0.0;
+  double best_delta_percent = 0.0;
+  int reading_count = 0;
+};
+
 class FatReadingLoop {
  public:
   void reset();
@@ -46,6 +53,18 @@ class FatReadingLoop {
 
 [[nodiscard]] std::string fat_loop_decision_to_json(
     const FatLoopDecision& decision
+);
+
+[[nodiscard]] FatSummaryPayload make_fat_summary_payload(
+    const SessionSnapshot& snapshot,
+    const FatLoopDecision& decision,
+    std::string produced_at,
+    BatteryState battery,
+    std::string algorithm_version
+);
+
+[[nodiscard]] std::string fat_summary_to_payload_json(
+    const FatSummaryPayload& payload
 );
 
 }  // namespace airhealth::fw

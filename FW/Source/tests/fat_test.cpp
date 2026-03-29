@@ -16,8 +16,11 @@ using airhealth::fw::FatReadingLoop;
 using airhealth::fw::SessionContext;
 using airhealth::fw::SessionMode;
 using airhealth::fw::SessionOrchestrator;
+using airhealth::fw::TerminalDisposition;
 using airhealth::fw::fat_loop_decision_to_json;
 using airhealth::fw::make_fat_loop_event;
+using airhealth::fw::make_fat_summary_payload;
+using airhealth::fw::fat_summary_to_payload_json;
 using airhealth::fw::session_event_to_payload_json;
 
 void expect(bool condition, const std::string& message) {
@@ -192,6 +195,94 @@ void test_fat_loop_json_is_deterministic() {
   );
 }
 
+void test_fat_summary_requires_completed_finish_path() {
+  SessionOrchestrator orchestrator;
+  expect(orchestrator.start_session(make_context()).ok(),
+         "fat summary guard test requires an active session");
+
+  FatReadingLoop loop;
+  static_cast<void>(loop.evaluate(FatReading {
+      .sample_valid = true,
+      .reading_percent = 20.0,
+  }));
+  const auto decision = loop.evaluate(FatReading {
+      .sample_valid = true,
+      .reading_percent = 18.0,
+  });
+
+  expect(orchestrator.finish_active_session(TerminalDisposition::Canceled).ok(),
+         "fat summary guard test requires a canceled terminal state");
+
+  bool threw = false;
+  try {
+    static_cast<void>(make_fat_summary_payload(
+        orchestrator.snapshot(),
+        decision,
+        "2026-03-29T04:00:00Z",
+        BatteryState {
+            .percent = 67,
+            .charging = false,
+            .low_power = false,
+        },
+        "alg-fat-1.1.0"
+    ));
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+
+  expect(threw,
+         "fat summary payload must not emit for canceled sessions");
+}
+
+void test_fat_summary_emits_after_valid_finish() {
+  SessionOrchestrator orchestrator;
+  expect(orchestrator.start_session(make_context()).ok(),
+         "fat summary payload test requires an active session");
+
+  FatReadingLoop loop;
+  static_cast<void>(loop.evaluate(FatReading {
+      .sample_valid = true,
+      .reading_percent = 20.0,
+  }));
+  const auto decision = loop.evaluate(FatReading {
+      .sample_valid = true,
+      .reading_percent = 22.0,
+  });
+
+  expect(orchestrator.finish_active_session(TerminalDisposition::Complete).ok(),
+         "fat summary payload test requires a completed session");
+
+  const auto payload = make_fat_summary_payload(
+      orchestrator.snapshot(),
+      decision,
+      "2026-03-29T04:01:00Z",
+      BatteryState {
+          .percent = 66,
+          .charging = false,
+          .low_power = false,
+      },
+      "alg-fat-1.1.0"
+  );
+
+  const auto json = fat_summary_to_payload_json(payload);
+  expect(
+      json ==
+          "{\"session_id\":\"fat-session-1\",\"mode\":\"fat_burning\","
+          "\"terminal_state\":\"complete\","
+          "\"produced_at\":\"2026-03-29T04:01:00Z\","
+          "\"terminal_reason\":\"fat_summary_ready\","
+          "\"battery\":{\"percent\":66,\"charging\":false,\"low_power\":false},"
+          "\"quality_gates\":{\"sample_valid\":true,\"warmup_ready\":true,"
+          "\"motion_stable\":true},"
+          "\"algorithm_version\":\"alg-fat-1.1.0\","
+          "\"routing\":{\"hardware_profile\":\"hw-fat\","
+          "\"voc_profile\":\"voc-low\"},"
+          "\"fat_summary\":{\"final_delta_percent\":2,"
+          "\"best_delta_percent\":2,\"reading_count\":2}}",
+      "fat summary payload should include final and best delta values"
+  );
+}
+
 }  // namespace
 
 int main() {
@@ -202,6 +293,8 @@ int main() {
     test_positive_deltas_update_best_delta();
     test_fat_loop_events_stay_in_active_session_envelope();
     test_fat_loop_json_is_deterministic();
+    test_fat_summary_requires_completed_finish_path();
+    test_fat_summary_emits_after_valid_finish();
   } catch (const std::exception& error) {
     std::cerr << "fat_test failed: " << error.what() << "\n";
     return EXIT_FAILURE;
