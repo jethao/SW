@@ -24,14 +24,19 @@ The current repository supports:
 - host-native CMake builds for the firmware source library
 - host-native unit tests for firmware modules under `SW/FW/Source/tests`
 
-The current repository does **not yet** include:
+The current repository now includes:
 
-- a Zephyr or NCS application entry point
-- a `west.yml` workspace manifest for a board build
-- a board configuration
-- a flashable MCU image target produced directly from this repo
+- a Zephyr or NCS application entry point under `SW/FW/Source/app`
+- an initial Nordic board target for `nrf5340dk/nrf5340/cpuapp`
+- a board-specific config and overlay
+- a flashable MCU image target produced by `west build`
 
-That means you can set up the environment, build the firmware source and run tests today, but you cannot yet build and flash a real device image from the checked-in source tree alone.
+The current repository still does **not yet** include:
+
+- a repo-local `west.yml` manifest for the application itself
+- a custom production board definition for AirHealth hardware
+
+That means you can set up the environment, build the firmware source, run tests, and build or flash an initial Nordic DK image today.
 
 ## Environment Setup
 
@@ -42,8 +47,8 @@ The current firmware environment expects:
 - `python3`
 - `cmake`
 - `ninja`
-- `arm-none-eabi-gcc` or `arm-zephyr-eabi-gcc`
 - `nrfutil`
+- a Zephyr SDK installation for board builds, for example `SW/FW/vendor-sdk/zephyr-sdk-0.17.4`
 
 ### 2. Bootstrap the repo-local Nordic SDK
 
@@ -65,6 +70,7 @@ Default repo-local SDK paths:
 
 - SDK checkout: `SW/FW/vendor-sdk/nordic/ncs`
 - tooling virtualenv: `SW/FW/vendor-sdk/.venv-fw-init`
+- recommended Zephyr SDK path for board builds: `SW/FW/vendor-sdk/zephyr-sdk-0.17.4`
 
 ### 3. Verify environment status
 
@@ -78,7 +84,10 @@ Expected healthy state:
 
 ## Build
 
-The current checked-in firmware build is a host-native CMake build for the firmware source library and test executables.
+The firmware tree supports both:
+
+- a host-native CMake build for shared firmware modules and tests
+- a Zephyr or NCS board build for a real Nordic application image
 
 From the AirHealth repo root:
 
@@ -91,6 +100,28 @@ This produces:
 
 - the firmware source static library
 - unit-test executables for the modules under `SW/FW/Source/tests`
+
+### Zephyr or NCS board build
+
+The initial checked-in board target is:
+
+- `nrf5340dk/nrf5340/cpuapp`
+
+From the AirHealth repo root:
+
+```bash
+export PATH="$PWD/SW/FW/vendor-sdk/.venv-fw-init/bin:$PATH"
+export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
+export ZEPHYR_SDK_INSTALL_DIR="$PWD/SW/FW/vendor-sdk/zephyr-sdk-0.17.4"
+cd SW/FW/vendor-sdk/nordic/ncs
+west build -p always -b nrf5340dk/nrf5340/cpuapp ../../../Source/app -d ../../../Source/app/build-nrf5340dk
+```
+
+This produces a real device image under:
+
+- `SW/FW/Source/app/build-nrf5340dk/app/zephyr/zephyr.elf`
+- `SW/FW/Source/app/build-nrf5340dk/app/zephyr/zephyr.hex`
+- `SW/FW/Source/app/build-nrf5340dk/merged.hex`
 
 ## Run Tests
 
@@ -116,46 +147,34 @@ This runs the current firmware test suite, including:
 
 ## Flash To Device
 
-### Current limitation
-
-You cannot currently flash a device image from this repo because there is no checked-in firmware application target that emits a Nordic image such as:
-
-- `zephyr.elf`
-- `zephyr.hex`
-- `zephyr.bin`
-- `merged.hex`
-
-There is also no checked-in `west build` target or board definition in `SW/FW` yet.
-
-### What is needed before flashing works
-
-To support device flashing from this repo, the firmware tree still needs:
-
-1. a real NCS or Zephyr application entry point
-2. a board target, for example an `nrf5340` app-core target
-3. the associated `prj.conf`, board config, and flash runner setup
-4. a documented image output path
-
-### Expected future flash flow
-
-Once a real board app is added, the expected Nordic workflow will look like this:
+After the board build succeeds, flash from the NCS workspace root:
 
 ```bash
-west build -b <board-target> <app-dir>
-west flash
+export PATH="$PWD/SW/FW/vendor-sdk/.venv-fw-init/bin:$PATH"
+export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
+export ZEPHYR_SDK_INSTALL_DIR="$PWD/SW/FW/vendor-sdk/zephyr-sdk-0.17.4"
+cd SW/FW/vendor-sdk/nordic/ncs
+west flash -d ../../../Source/app/build-nrf5340dk
 ```
 
-Or, if flashing by artifact:
+If you prefer flashing by explicit artifact:
 
 ```bash
-nrfutil device program --firmware <image-file>
+cd /Users/haohua/coding/AirHealth
+nrfutil device program --firmware SW/FW/Source/app/build-nrf5340dk/merged.hex
 ```
 
-Use those commands only after a real firmware image target is added to the repo.
+Expected prerequisites:
+
+- the board is connected over USB
+- Nordic debug access is available on the host
+- the `fw-init` flow has already populated `SW/FW/vendor-sdk`
+- the Zephyr SDK bundle is available at `SW/FW/vendor-sdk/zephyr-sdk-0.17.4` or equivalent
 
 ## Directory Guide
 
-- `SW/FW/Source`: firmware source, build files, and tests
+- `SW/FW/Source`: shared firmware source, build files, and tests
+- `SW/FW/Source/app`: Zephyr or NCS application entry point and board config
 - `SW/FW/SKILLS`: firmware workflow skills used by Codex
 - `SW/FW/vendor-sdk`: repo-local SDK bootstrap area
 - `SW/FW/initialize.rpt`: firmware environment status report
@@ -170,6 +189,9 @@ bash SW/FW/SKILLS/fw-init/scripts/run_fw_init.sh
 cmake -S SW/FW/Source -B SW/FW/Source/build
 cmake --build SW/FW/Source/build
 ctest --test-dir SW/FW/Source/build --output-on-failure
+export PATH="$PWD/SW/FW/vendor-sdk/.venv-fw-init/bin:$PATH"
+export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
+export ZEPHYR_SDK_INSTALL_DIR="$PWD/SW/FW/vendor-sdk/zephyr-sdk-0.17.4"
+cd SW/FW/vendor-sdk/nordic/ncs
+west build -p always -b nrf5340dk/nrf5340/cpuapp ../../../Source/app -d ../../../Source/app/build-nrf5340dk
 ```
-
-If you need actual device flashing, add a real NCS board application target to `SW/FW` first, then extend this README with the exact board build and flash commands.
