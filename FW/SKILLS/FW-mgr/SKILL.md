@@ -1,6 +1,6 @@
 ---
 name: fw-mgr
-description: Manage the AirHealth firmware delivery loop by orchestrating `FW-ENG` and `FW-CR` for the `FIR` Linear team and `jethao/SW` firmware pull requests. Use when Codex should pick only unblocked firmware tickets, invoke `FW-ENG` to implement them, invoke `FW-CR` to review the resulting PRs, alternate between implementation and review until the current PR is approval-ready, generate a review-history report, and then stop without starting the next ticket until the current PR is merged.
+description: Manage the AirHealth firmware delivery loop by orchestrating `FW-ENG` and `FW-CR` for the `FIR` Linear team and `jethao/SW` firmware pull requests. Use when Codex should pick any unblocked firmware tickets, invoke `FW-ENG` to implement them, invoke `FW-CR` to review resulting PRs, alternate between implementation and review as needed, generate a review-history report, and continue advancing only tickets that still have no unresolved blockers or dependency gaps.
 ---
 
 # Firmware Manager
@@ -10,11 +10,11 @@ Use this skill when Codex should act as the firmware work manager for AirHealth 
 The purpose of this skill is to coordinate the firmware loop safely:
 
 1. select only ready firmware tickets with no unresolved blockers
-2. invoke `FW-ENG` to implement and open the PR for that one ticket
-3. invoke `FW-CR` to review the live PR against the linked `FIR` ticket
-4. alternate `FW-ENG` and `FW-CR` until the PR has no remaining actionable review findings
+2. invoke `FW-ENG` to implement and open PRs for ready tickets
+3. invoke `FW-CR` to review live PRs against their linked `FIR` tickets
+4. alternate `FW-ENG` and `FW-CR` until each active PR has no remaining actionable review findings
 5. generate a report from the PR review history
-6. stop and wait for merge before starting another ticket
+6. continue advancing only tickets that still have no unresolved blockers or dependency gaps
 
 ## Managed Skills
 
@@ -29,9 +29,9 @@ Use those skills for the detailed execution. `FW-mgr` owns queue control, stop c
 
 - Work only in firmware scope under `SW/FW`.
 - Only start tickets in the `FIR` team that are in project `AirHealth` and have no unresolved blockers or practical dependency gaps.
-- Do not start a new ticket when there is already an open firmware PR for an unmerged ticket.
-- Do not auto-proceed to the next ticket just because the current PR appears approved or review-clean.
-- Treat merge as the gate for moving on to the next ticket.
+- Open PRs do not block starting another ticket unless the new ticket depends on one of those still-open tickets or is otherwise practically blocked.
+- Do not start a blocked ticket just because some other open PR is review-clean.
+- Treat dependency readiness, not merge order alone, as the gate for moving on to the next ticket.
 - If GitHub cannot record approval because the same account authored and reviewed the PR, use review history and the latest `FW-CR` pass to determine approval-ready status.
 - Generate or refresh a manager report on every invocation.
 
@@ -56,9 +56,9 @@ Write the manager report to:
 
 ## Manager State Model
 
-Treat each invocation as operating on exactly one active firmware delivery lane.
+Treat each invocation as operating on one or more active firmware delivery lanes.
 
-Possible states:
+Possible states for each lane:
 
 - `idle`: no open firmware PR exists, so a ready ticket may be started
 - `implementing`: a ready ticket exists with no PR yet, so invoke `FW-ENG`
@@ -67,7 +67,7 @@ Possible states:
 - `waiting_for_merge`: the current PR is approval-ready or approved, but still open
 - `blocked`: no ticket is ready because of blockers, dependency gaps, or unresolved upstream work
 
-Only one lane should be active at a time.
+Multiple lanes may be active at the same time, but only for tickets that are independently ready.
 
 ## Queue Gate
 
@@ -75,10 +75,10 @@ Before doing any implementation work:
 
 1. inspect open firmware PRs in `jethao/SW`
 2. inspect the linked `FIR` ticket for each open firmware PR
-3. if any relevant PR is still open, work on that PR instead of starting a new ticket
-4. only if no active firmware PR exists, look for the next ready `FIR` ticket with no unresolved blocker
+3. review any active PR that has unresolved actionable feedback
+4. also look for the next ready `FIR` tickets with no unresolved blocker and no dependency on still-open work
 
-Do not start a second ticket while the first ticket still has an open PR.
+Open PRs are allowed to coexist as long as each newly started ticket is still independently unblocked.
 
 ## Orchestration Workflow
 
@@ -88,29 +88,29 @@ Follow this sequence.
 
 - list open PRs in `jethao/SW`
 - keep only PRs that materially touch `FW/`
-- if one or more such PRs exist, choose the oldest active firmware PR unless the user requested a specific one
+- if one or more such PRs exist, review the ones with unresolved feedback first
+- track which linked tickets are still open so dependent tickets are not started prematurely
 
-If there is an active firmware PR:
+If there are active firmware PRs:
 
-- do not start a new ticket
-- move directly to review-loop handling
+- handle review-loop work for any PR with actionable findings
+- keep approval-ready but unmerged PRs recorded as open dependency candidates
+- continue to queue evaluation for other tickets that remain independently ready
 
-### 2. Start A New Ticket Only When No PR Is Open
-
-If there is no open firmware PR:
+### 2. Start Ready Tickets Even When Other PRs Are Open
 
 - inspect `FIR` backlog tickets in project `AirHealth`
-- choose only a ticket with no unresolved blockers or practical dependency gaps
-- prefer a leaf implementation task over a story
-- invoke `FW-ENG` for that one ticket
+- choose only tickets with no unresolved blockers, no practical dependency gaps, and no dependency on still-open PR work
+- prefer leaf implementation tasks over stories
+- invoke `FW-ENG` for one or more such ready tickets as appropriate for the current invocation
 
-If no ticket is ready:
+If no additional ticket is ready:
 
-- produce a blocked report and stop
+- produce a blocked or waiting report and stop
 
-### 3. Review Loop For The Active PR
+### 3. Review Loop For Active PRs
 
-Once a firmware PR exists:
+For each active firmware PR that needs review attention:
 
 - invoke `FW-CR`
 - collect review findings, PR comments, review comments, and current PR status
@@ -124,8 +124,8 @@ If `FW-CR` finds actionable issues:
 If `FW-CR` finds no actionable issues:
 
 - treat the PR as approval-ready
-- do not start the next ticket
-- stop and wait for merge
+- keep the PR open in the report as waiting for merge
+- continue only with other independently ready tickets
 
 ## Approval-Ready Logic
 
@@ -144,10 +144,10 @@ If GitHub refuses the formal approval action because the reviewer is also the au
 
 Stop the current invocation when any of the following is true:
 
-- the active PR still has unresolved actionable review feedback after the current pass
-- the active PR is approval-ready and is now waiting for merge
-- there is no open PR but no ready unblocked ticket exists
-- the current ticket is blocked by a dependency, missing contract, or unresolved upstream work
+- one or more active PRs still have unresolved actionable review feedback after the current pass
+- all currently open PRs are approval-ready or waiting for merge and there are no additional ready unblocked tickets
+- there are no open PRs needing action and no ready unblocked tickets exist
+- the next candidate tickets are blocked by dependencies, missing contracts, or unresolved upstream work
 
 Do not auto-advance beyond these stop points.
 
@@ -158,13 +158,14 @@ Refresh `SW/FW/fw-mgr.rpt` on every invocation.
 The report should include:
 
 - timestamp
-- active ticket key and title, if any
-- active PR URL and status, if any
+- active tickets and titles, if any
+- active PR URLs and statuses, if any
 - whether the current run invoked `FW-ENG`, `FW-CR`, or both
 - summary of actionable review findings from the latest review history
-- whether the PR is blocked, under review, approval-ready, or waiting for merge
+- whether each active lane is blocked, under review, approval-ready, or waiting for merge
 - whether same-account GitHub review restrictions prevented a formal approval
-- whether a new ticket was intentionally not started because an approved or approval-ready PR is still unmerged
+- whether additional ready tickets were started while unrelated PRs remained open
+- whether blocked tickets were intentionally skipped because of dependencies or blockers
 
 Keep the report concise and operational.
 
@@ -172,11 +173,11 @@ Keep the report concise and operational.
 
 For each invocation, report:
 
-- whether a new ticket was started or intentionally not started
-- the active ticket and PR, if any
+- whether new tickets were started or intentionally skipped
+- the active tickets and PRs, if any
 - whether `FW-ENG` was invoked
 - whether `FW-CR` was invoked
-- current lane status: blocked, under review, approval-ready, or waiting for merge
+- current lane status for each active lane: blocked, under review, approval-ready, or waiting for merge
 - whether the manager report was refreshed
 
 Keep the summary short and manager-focused.
