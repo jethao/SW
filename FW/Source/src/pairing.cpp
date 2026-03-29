@@ -22,6 +22,21 @@ std::string bool_to_json(bool value) {
   return value ? "true" : "false";
 }
 
+std::string to_hex(std::uint64_t value) {
+  std::ostringstream out;
+  out << std::hex << value;
+  return out.str();
+}
+
+std::uint64_t fnv1a_64(const std::string& input) {
+  std::uint64_t hash = 1469598103934665603ULL;
+  for (unsigned char c : input) {
+    hash ^= c;
+    hash *= 1099511628211ULL;
+  }
+  return hash;
+}
+
 }  // namespace
 
 std::string ProtocolVersion::to_string() const {
@@ -50,6 +65,69 @@ bool is_protocol_major_supported(
     int requested_major
 ) {
   return device_info.protocol_version.major == requested_major;
+}
+
+ClaimState InMemoryClaimStore::load() const {
+  return state_;
+}
+
+void InMemoryClaimStore::save(const ClaimState& state) {
+  state_ = state;
+}
+
+ClaimService::ClaimService(std::string device_identity, ClaimStore& store)
+    : device_identity_(std::move(device_identity)), store_(store) {}
+
+ClaimBeginResult ClaimService::begin_claim(const std::string& challenge) const {
+  if (challenge.empty()) {
+    return ClaimBeginResult {
+        .error = ClaimError::EmptyChallenge,
+    };
+  }
+
+  const ClaimState existing = store_.load();
+  if (existing.claimed) {
+    return ClaimBeginResult {
+        .error = ClaimError::AlreadyClaimed,
+    };
+  }
+
+  const std::string proof_seed = device_identity_ + "::" + challenge;
+  const std::string proof =
+      "claim::" + device_identity_ + "::" + to_hex(fnv1a_64(proof_seed));
+
+  store_.save(ClaimState {
+      .claimed = true,
+      .device_identity = device_identity_,
+      .claim_proof = proof,
+  });
+
+  return ClaimBeginResult {
+      .error = ClaimError::None,
+      .claim_proof =
+          ClaimProof {
+              .device_identity = device_identity_,
+              .challenge = challenge,
+              .proof = proof,
+          },
+  };
+}
+
+ClaimState ClaimService::load_claim_state() const {
+  return store_.load();
+}
+
+std::string claim_error_to_string(ClaimError error) {
+  switch (error) {
+    case ClaimError::None:
+      return "none";
+    case ClaimError::EmptyChallenge:
+      return "empty_challenge";
+    case ClaimError::AlreadyClaimed:
+      return "already_claimed";
+  }
+
+  throw std::invalid_argument("Unsupported claim error");
 }
 
 std::string device_info_to_payload_json(const DeviceInfo& device_info) {
