@@ -95,6 +95,21 @@ struct AppShellView: View {
                 onConnectDevice: {
                     store.connectDiscoveredDevice()
                 },
+                onStartClaim: {
+                    store.startClaimDevice()
+                },
+                onClaimSuccess: {
+                    store.completeClaimDevice()
+                },
+                onClaimFailure: {
+                    store.failClaimDevice()
+                },
+                onRetryClaim: {
+                    store.retryClaimDevice()
+                },
+                onSelectMode: { mode in
+                    store.selectSetupMode(mode)
+                },
                 onFinishConnection: {
                     store.confirmDeviceConnection()
                 },
@@ -203,6 +218,11 @@ private struct PairingSetupView: View {
     let onDiscoverDevice: () -> Void
     let onDiscoveryTimeout: () -> Void
     let onConnectDevice: () -> Void
+    let onStartClaim: () -> Void
+    let onClaimSuccess: () -> Void
+    let onClaimFailure: () -> Void
+    let onRetryClaim: () -> Void
+    let onSelectMode: (SetupMode) -> Void
     let onFinishConnection: () -> Void
     let onRetryPermission: () -> Void
     let onRetryDiscovery: () -> Void
@@ -286,7 +306,7 @@ private struct PairingSetupView: View {
                 .buttonStyle(.borderedProminent)
 
             case .connected:
-                Text("Device connected. Claim and initial mode setup continue in the next onboarding ticket.")
+                Text("Device connected. Continue by claiming the device and choosing the initial feature mode.")
                     .foregroundStyle(.secondary)
                 if let device = pairingState.discoveredDevice {
                     Text("Connected device: \(device.name)")
@@ -294,6 +314,56 @@ private struct PairingSetupView: View {
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
                 }
+                Button("Claim Device") {
+                    onStartClaim()
+                }
+                .buttonStyle(.borderedProminent)
+
+            case .claiming:
+                Text("Claiming this device to the current AirHealth account.")
+                    .foregroundStyle(.secondary)
+                if let device = pairingState.discoveredDevice {
+                    Text("Claim target: \(device.name)")
+                }
+                Button("Claim Succeeds") {
+                    onClaimSuccess()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Claim Fails") {
+                    onClaimFailure()
+                }
+                .buttonStyle(.bordered)
+
+            case .claimFailed:
+                Text(pairingState.recoveryMessage ?? "Claim failed.")
+                    .foregroundStyle(.secondary)
+                Button("Retry Claim") {
+                    onRetryClaim()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Back To Home") {
+                    onBackHome()
+                }
+                .buttonStyle(.bordered)
+
+            case .modeSelection:
+                Text("Device is now bound to \(pairingState.claimOwnerLabel ?? "your AirHealth account"). Choose the initial mode to finish setup.")
+                    .foregroundStyle(.secondary)
+                ForEach(SetupMode.allCases, id: \.rawValue) { mode in
+                    Button("Use \(mode.title)") {
+                        onSelectMode(mode)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+
+            case .setupComplete:
+                Text("Setup complete. The device is claimed and ready for downstream feature flows.")
+                    .foregroundStyle(.secondary)
+                if let device = pairingState.discoveredDevice {
+                    Text("Connected device: \(device.name)")
+                }
+                Text("Owner binding: \(pairingState.claimOwnerLabel ?? "Primary AirHealth account")")
+                Text("Initial mode: \(pairingState.selectedMode?.title ?? "Not selected")")
                 Button("Back To Home") {
                     onBackHome()
                 }

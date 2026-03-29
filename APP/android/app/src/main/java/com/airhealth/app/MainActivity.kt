@@ -166,11 +166,75 @@ class MainActivity : AppCompatActivity() {
 
                 PairingStep.CONNECTED -> {
                     val device = pairingState.discoveredDevice
-                    addView(bodyCopy("Device connected. Claim and initial mode setup continue in the next onboarding ticket."))
+                    addView(bodyCopy("Device connected. Continue by claiming the device and choosing the initial feature mode."))
                     if (device != null) {
                         addView(bodyCopy("Connected device: ${device.name}"))
                         addView(caption("Protocol: ${device.protocolVersion}"))
                     }
+                    addView(
+                        actionButton("Claim Device") {
+                            routeState.startClaimDevice()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.CLAIMING -> {
+                    val device = pairingState.discoveredDevice
+                    addView(bodyCopy("Claiming this device to the current AirHealth account."))
+                    if (device != null) {
+                        addView(bodyCopy("Claim target: ${device.name}"))
+                    }
+                    addView(
+                        actionButton("Claim Succeeds") {
+                            routeState.completeClaimDevice()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Claim Fails") {
+                            routeState.failClaimDevice()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.CLAIM_FAILED -> {
+                    addView(bodyCopy(pairingState.recoveryMessage ?: "Claim failed."))
+                    addView(
+                        actionButton("Retry Claim") {
+                            routeState.retryClaimDevice()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Back To Home") {
+                            routeState.exitSetup()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.MODE_SELECTION -> {
+                    addView(bodyCopy("Device is now bound to ${pairingState.claimOwnerLabel ?: "your AirHealth account"}. Choose the initial mode to finish setup."))
+                    SetupMode.entries.forEach { mode ->
+                        addView(
+                            actionButton("Use ${mode.title}") {
+                                routeState.selectSetupMode(mode)
+                                renderRoute()
+                            }
+                        )
+                    }
+                }
+
+                PairingStep.SETUP_COMPLETE -> {
+                    val device = pairingState.discoveredDevice
+                    addView(bodyCopy("Setup complete. The device is claimed and ready for downstream feature flows."))
+                    if (device != null) {
+                        addView(bodyCopy("Connected device: ${device.name}"))
+                    }
+                    addView(bodyCopy("Owner binding: ${pairingState.claimOwnerLabel ?: "Primary AirHealth account"}"))
+                    addView(bodyCopy("Initial mode: ${pairingState.selectedMode?.title ?: "Not selected"}"))
                     addView(
                         actionButton("Back To Home") {
                             routeState.exitSetup()
