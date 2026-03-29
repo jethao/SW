@@ -12,6 +12,7 @@ add_library(airhealth_fw_pairing
   src/session_contract.cpp
   src/oral.cpp
   src/low_power.cpp
+  src/fat.cpp
 )
 
 target_include_directories(airhealth_fw_pairing
@@ -64,6 +65,15 @@ target_link_libraries(low_power_test
     airhealth_fw_pairing
 )
 
+add_executable(fat_test
+  tests/fat_test.cpp
+)
+
+target_link_libraries(fat_test
+  PRIVATE
+    airhealth_fw_pairing
+)
+
 enable_testing()
 
 add_test(
@@ -89,4 +99,9 @@ add_test(
 add_test(
   NAME low_power_test
   COMMAND low_power_test
+)
+
+add_test(
+  NAME fat_test
+  COMMAND fat_test
 )
