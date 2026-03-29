@@ -1,0 +1,9 @@
+.venv-app-init/
+.app-init.env
+initialize.rpt
+manager.rpt
+artifacts/
+ios/Pods/
+android/.gradle/
+android/local.properties
+android/app/build/

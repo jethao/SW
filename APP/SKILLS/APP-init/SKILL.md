@@ -7,7 +7,7 @@ description: Initialize the AirHealth mobile development environment by reading 
 
 Use this skill when Codex needs to bootstrap or verify the local mobile app development environment for AirHealth.
 
-The current AirHealth mobile baseline targets iOS 26+ and Android 16+ consumer phones, uses BLE, and requires packaging support for Apple Health and Health Connect integrations. The source docs do not pin a specific mobile framework, so this skill must not silently assume React Native, Flutter, Expo, or a purely native split unless the repo contents explicitly establish one.
+The current AirHealth mobile baseline targets iOS 26+ and Android 16+ consumer phones, uses BLE, and requires packaging support for Apple Health and Health Connect integrations. The source docs do not pin a specific cross-platform framework, so this skill must not silently assume React Native, Flutter, Expo, or another JS runtime unless the repo contents explicitly establish one.
 
 ## Required Input
 
@@ -36,26 +36,38 @@ Follow this sequence:
    - BLE-capable mobile development toolchain
    - Apple Health and Health Connect integration readiness
    - package creation readiness for iOS and Android deliverables
-3. Check the local app environment for:
-   - `python3`
-   - repo-local Python virtualenv for app init helper tooling
-   - `xcodebuild`
-   - `xcrun`
-   - `swift`
-   - CocoaPods or Bundler support when an iOS dependency flow needs them
-   - `java`
-   - Android SDK root and tools such as `sdkmanager`, `adb`, `emulator`, `zipalign`, and `apksigner`
-   - Gradle or repo-local `gradlew`
-   - optional package-manager tooling such as `node`, `npm`, `yarn`, or `pnpm` only when the repo contents suggest a JS-based app stack
-   - optional packaging helpers such as `bundletool`
+3. Check the local app environment for the correct tooling layer:
+   - Python helper tooling:
+     - `python3`
+     - repo-local Python virtualenv for app-init helper tooling only
+   - iOS host tooling:
+     - `xcodebuild`
+     - `xcrun`
+     - `swift`
+     - CocoaPods or Bundler support when an iOS dependency flow needs them
+   - Android host tooling:
+     - `java`
+     - Android SDK root and tools such as `sdkmanager`, `adb`, `emulator`, `zipalign`, and `apksigner`
+     - Gradle or repo-local `gradlew`
+     - optional packaging helpers such as `bundletool`
+   - optional JS package-manager tooling such as `node`, `npm`, `yarn`, or `pnpm` only when the repo contents suggest a JS-based app stack
 4. Gather as much local context as possible before any network or installer call:
    - existing app manifests and build files under `SW/APP`
    - existing Xcode selection and SDK paths
    - existing Android SDK, build-tools, and platform-tools locations
    - whether the repo already implies native iOS, native Android, or another app stack
-5. If lightweight installable tooling is missing, run [`scripts/run_app_init.sh`](scripts/run_app_init.sh).
-6. If network access or writes outside the workspace are required, request escalation before running the script.
-7. Always write or refresh the report at `SW/APP/initialize.rpt`.
+5. If the repo does not yet contain an app scaffold, create an initial native-first scaffold under `SW/APP`:
+   - do not invent React Native, Flutter, Expo, or another cross-platform runtime without repo evidence or explicit user instruction
+   - create baseline iOS and Android project layout, source roots, and build-manifest placeholders that let the repo grow into a real app
+   - keep the scaffold intentionally minimal and compatible with the documented AirHealth baseline
+6. If lightweight installable tooling is missing, run [`scripts/run_app_init.sh`](scripts/run_app_init.sh).
+7. Use the right install lane for each missing dependency:
+   - Python helper tooling belongs in the repo-local virtualenv
+   - iOS tooling belongs in Xcode, Ruby/Bundler, or CocoaPods on the host
+   - Android tooling belongs in Android Studio, the Android SDK, JDK, and Gradle or `gradlew` on the host
+8. Write a repo-local environment bootstrap file for reusable shell exports and SDK path hints.
+9. If network access or writes outside the workspace are required, request escalation before running the script.
+10. Always write or refresh the report at `SW/APP/initialize.rpt`.
 
 ## Script Use
 
@@ -71,6 +83,7 @@ Environment overrides:
 - `AIRHEALTH_APP_TOOLING_VENV`: local Python virtualenv path used for app-init helper tooling
 - `AIRHEALTH_APP_ALLOW_BREW_INSTALL=1`: allow Homebrew installation of lightweight missing tools such as CocoaPods or bundletool
 - `AIRHEALTH_APP_CREATE_ARTIFACT_DIRS=1`: create or refresh `SW/APP/artifacts/ios` and `SW/APP/artifacts/android`
+- `AIRHEALTH_APP_CREATE_SCAFFOLD=1`: create the initial native-first app scaffold when `SW/APP` has no app project yet
 - `APP_INIT_NO_INSTALL=1`: audit the environment and write the report without installing tools
 
 Default artifact directories:
@@ -82,11 +95,17 @@ Default tooling virtualenv:
 
 - `SW/APP/.venv-app-init`
 
+Default environment bootstrap file:
+
+- `SW/APP/.app-init.env`
+
 Before downloading or installing anything, consolidate the environment findings first so the init pass can make the smallest necessary set of package-manager calls.
 
 The init pass should always create or reuse a repo-local virtualenv for its own helper tooling, even if no extra Python packages are installed during that run.
 
-If the repo does not yet contain a framework-specific app scaffold, initialize only the shared native toolchain prerequisites and packaging directories. Do not invent a framework or create a full app project unless the user explicitly asks for that next.
+The virtualenv is not the install target for Xcode, Android SDK, Gradle, CocoaPods, or bundletool. Those belong in the host mobile toolchain, and the report must say so clearly when they are missing.
+
+If the repo does not yet contain an app scaffold, create a minimal native-first baseline scaffold. That scaffold should favor explicit `ios/` and `android/` roots, simple source folders, and build-file placeholders over a speculative framework choice.
 
 ## Report Requirements
 
@@ -98,8 +117,11 @@ If the repo does not yet contain a framework-specific app scaffold, initialize o
 - architecture spec file used
 - inferred mobile platform baseline
 - current environment check results
+- scaffold status and scaffold kind
 - tooling virtualenv path and whether it was created or reused
+- environment bootstrap file path
 - whether app artifact directories were created or reused
+- tooling-layer guidance showing which missing dependencies belong in the venv versus the host toolchain
 - iOS package creation readiness
 - Android package creation readiness
 - remaining gaps that still block app development or packaging
@@ -114,6 +136,7 @@ Use these rules unless the source docs say otherwise:
 - Apple Health support -> note iOS platform integration readiness
 - Health Connect support -> note Android platform integration readiness
 - no framework explicitly named -> do not assume React Native, Flutter, Expo, or another cross-platform runtime
+- no framework explicitly named and no existing app scaffold -> create a native-first baseline scaffold instead of a speculative cross-platform project
 
 If the docs do not support a coherent mobile baseline, stop after environment inspection and mark the report `BLOCKED` with the ambiguity called out explicitly.
 
@@ -125,6 +148,7 @@ Before finishing, confirm:
 - the PRD was used when available, and its absence is called out when missing
 - the script did not silently skip missing native toolchain prerequisites
 - the repo-local app-init virtualenv exists or any failure to create it is called out explicitly
+- when the app scaffold was missing, the script either created the baseline scaffold or called out clearly why it could not
 - package creation gaps are called out explicitly for both iOS and Android
-- no mobile framework was invented without repo evidence or explicit user instruction
+- no speculative mobile framework was invented without repo evidence or explicit user instruction
 - the final report is written to `SW/APP/initialize.rpt`
