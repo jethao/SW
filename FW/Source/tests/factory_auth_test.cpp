@@ -2,6 +2,7 @@
 
 #include "airhealth/fw/led_button.hpp"
 
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -14,6 +15,9 @@ using airhealth::fw::FactoryAccessError;
 using airhealth::fw::FactoryAuthorizationService;
 using airhealth::fw::FactoryCommand;
 using airhealth::fw::FactoryModeController;
+using airhealth::fw::FactoryProvisioningController;
+using airhealth::fw::FileFactoryProvisioningStore;
+using airhealth::fw::InMemoryFactoryProvisioningStore;
 using airhealth::fw::factory_access_error_to_string;
 
 void expect(bool condition, const std::string& message) {
@@ -67,6 +71,70 @@ void test_factory_exit_uses_exit_intent() {
          "exit should report a stable reason");
 }
 
+void test_factory_check_runs_once_and_locks_factory_mode() {
+  InMemoryFactoryProvisioningStore store;
+  FactoryProvisioningController controller(store);
+
+  const auto executed = controller.run_hardware_check(true, true);
+  expect(executed.executed && executed.passed,
+         "authorized hardware check should execute once");
+  expect(executed.lockout_active,
+         "hardware check completion should enable the provisioning lockout");
+
+  const auto blocked_entry = controller.evaluate_entry(ButtonIntent::FactoryEntry, true);
+  expect(!blocked_entry.factory_mode_active,
+         "factory entry should be blocked after provisioning lockout");
+  expect(blocked_entry.reason_code == "factory_mode_locked_out",
+         "lockout should surface a stable re-entry rejection reason");
+
+  const auto repeated = controller.run_hardware_check(true, true);
+  expect(!repeated.executed && repeated.lockout_active,
+         "hardware check must not rerun once the unit is locked out");
+}
+
+void test_factory_check_requires_authorization() {
+  InMemoryFactoryProvisioningStore store;
+  FactoryProvisioningController controller(store);
+
+  const auto denied = controller.run_hardware_check(false, true);
+  expect(!denied.executed,
+         "hardware check should not execute without authorization");
+  expect(denied.reason_code == "authorization_required",
+         "unauthorized hardware check should report a stable reason");
+}
+
+void test_factory_provisioning_state_persists_across_reboot() {
+  const std::string path = "/tmp/airhealth_factory_provisioning_test.state";
+  std::remove(path.c_str());
+  {
+    FileFactoryProvisioningStore store(path);
+    FactoryProvisioningController controller(store);
+    const auto failed = controller.run_hardware_check(true, false);
+    expect(failed.executed && !failed.passed,
+           "failed hardware check should still be recorded");
+  }
+
+  {
+    FileFactoryProvisioningStore rebooted_store(path);
+    FactoryProvisioningController rebooted_controller(rebooted_store);
+    const auto state = rebooted_controller.load_state();
+    expect(state.hardware_check_completed,
+           "completed hardware check should survive reboot-style reload");
+    expect(!state.hardware_check_passed,
+           "persisted state should retain pass or fail outcome");
+    expect(state.provisioning_locked,
+           "provisioning lockout should survive reboot-style reload");
+
+    const auto entry = rebooted_controller.evaluate_entry(
+        ButtonIntent::FactoryEntry,
+        true
+    );
+    expect(entry.reason_code == "factory_mode_locked_out",
+           "rebooted controller should keep re-entry blocked deterministically");
+  }
+  std::remove(path.c_str());
+}
+
 }  // namespace
 
 int main() {
@@ -75,6 +143,9 @@ int main() {
     test_authorization_requires_matching_token();
     test_factory_mode_entry_requires_authorization();
     test_factory_exit_uses_exit_intent();
+    test_factory_check_runs_once_and_locks_factory_mode();
+    test_factory_check_requires_authorization();
+    test_factory_provisioning_state_persists_across_reboot();
   } catch (const std::exception& error) {
     std::cerr << "factory_auth_test failed: " << error.what() << "\n";
     return EXIT_FAILURE;
