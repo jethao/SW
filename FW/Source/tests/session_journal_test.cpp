@@ -17,7 +17,9 @@ using airhealth::fw::FileSessionJournalStore;
 using airhealth::fw::QualityGates;
 using airhealth::fw::RoutingMetadata;
 using airhealth::fw::SessionJournalError;
+using airhealth::fw::SessionReplayService;
 using airhealth::fw::SessionMode;
+using airhealth::fw::session_replay_error_to_string;
 using airhealth::fw::SessionResultEnvelope;
 using airhealth::fw::SessionState;
 using airhealth::fw::make_session_journal_entry;
@@ -154,6 +156,43 @@ void test_journal_stores_only_terminal_summary_fields() {
   std::filesystem::remove(path);
 }
 
+void test_replay_returns_matching_session_result() {
+  InMemorySessionJournalStore store;
+  store.save(make_session_journal_entry(make_result(), true));
+
+  SessionReplayService replay(store);
+  const auto result = replay.query_by_session_id("session-21");
+  expect(result.ok(), "replay query should return the stored session");
+  expect(result.replayed_result.terminal_reason == "fat_summary_ready",
+         "replay query should return the stored terminal payload");
+}
+
+void test_replay_rejects_unknown_session_id() {
+  InMemorySessionJournalStore store;
+  store.save(make_session_journal_entry(make_result(), true));
+
+  SessionReplayService replay(store);
+  const auto result = replay.query_by_session_id("session-missing");
+  expect(!result.ok(), "replay query should reject missing session ids");
+  expect(session_replay_error_to_string(result.error) == "session_id_mismatch",
+         "missing session ids should map to a stable mismatch error");
+}
+
+void test_acknowledgment_tombstones_replayed_session() {
+  InMemorySessionJournalStore store;
+  store.save(make_session_journal_entry(make_result(), true));
+
+  SessionReplayService replay(store);
+  expect(replay.acknowledge_session_id("session-21") ==
+             airhealth::fw::SessionReplayError::None,
+         "ack should clear a matching session replay record");
+
+  const auto replay_after_ack = replay.query_by_session_id("session-21");
+  expect(!replay_after_ack.ok(), "acknowledged session should not replay again");
+  expect(session_replay_error_to_string(replay_after_ack.error) == "not_found",
+         "ack should tombstone the journal entry");
+}
+
 }  // namespace
 
 int main() {
@@ -163,6 +202,9 @@ int main() {
     test_corruption_is_detected();
     test_not_found_is_stable();
     test_journal_stores_only_terminal_summary_fields();
+    test_replay_returns_matching_session_result();
+    test_replay_rejects_unknown_session_id();
+    test_acknowledgment_tombstones_replayed_session();
   } catch (const std::exception& error) {
     std::cerr << "session_journal_test failed: " << error.what() << "\n";
     return EXIT_FAILURE;

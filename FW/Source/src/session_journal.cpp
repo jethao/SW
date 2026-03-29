@@ -118,6 +118,11 @@ void InMemorySessionJournalStore::save(const SessionJournalEntry& entry) {
   entry_ = entry;
 }
 
+void InMemorySessionJournalStore::clear() {
+  present_ = false;
+  entry_ = {};
+}
+
 FileSessionJournalStore::FileSessionJournalStore(std::string storage_path)
     : storage_path_(std::move(storage_path)) {}
 
@@ -176,6 +181,13 @@ void FileSessionJournalStore::save(const SessionJournalEntry& entry) {
   output << canonicalize(entry) << to_hex(entry.crc32) << "\n";
 }
 
+void FileSessionJournalStore::clear() {
+  std::ofstream output(storage_path_, std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("Unable to open session journal for clear");
+  }
+}
+
 const std::string& FileSessionJournalStore::storage_path() const {
   return storage_path_;
 }
@@ -208,6 +220,60 @@ std::string session_journal_error_to_string(SessionJournalError error) {
   }
 
   throw std::invalid_argument("Unsupported session journal error");
+}
+
+SessionReplayService::SessionReplayService(SessionJournalStore& store)
+    : store_(store) {}
+
+SessionReplayResult SessionReplayService::query_by_session_id(
+    const std::string& session_id
+) const {
+  const auto loaded = store_.load();
+  if (!loaded.ok()) {
+    return SessionReplayResult {
+        .error = loaded.error == SessionJournalError::Corrupt
+            ? SessionReplayError::JournalCorrupt
+            : SessionReplayError::NotFound,
+    };
+  }
+
+  if (loaded.entry.result.session_id != session_id) {
+    return SessionReplayResult {
+        .error = SessionReplayError::SessionIdMismatch,
+    };
+  }
+
+  return SessionReplayResult {
+      .error = SessionReplayError::None,
+      .replayed_result = loaded.entry.result,
+  };
+}
+
+SessionReplayError SessionReplayService::acknowledge_session_id(
+    const std::string& session_id
+) {
+  const auto replay = query_by_session_id(session_id);
+  if (!replay.ok()) {
+    return replay.error;
+  }
+
+  store_.clear();
+  return SessionReplayError::None;
+}
+
+std::string session_replay_error_to_string(SessionReplayError error) {
+  switch (error) {
+    case SessionReplayError::None:
+      return "none";
+    case SessionReplayError::NotFound:
+      return "not_found";
+    case SessionReplayError::JournalCorrupt:
+      return "journal_corrupt";
+    case SessionReplayError::SessionIdMismatch:
+      return "session_id_mismatch";
+  }
+
+  throw std::invalid_argument("Unsupported session replay error");
 }
 
 }  // namespace airhealth::fw
