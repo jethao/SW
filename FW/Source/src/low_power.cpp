@@ -109,6 +109,61 @@ LowPowerDecision LowPowerController::evaluate(const LowPowerSample& sample) {
   };
 }
 
+LowPowerSessionGate::LowPowerSessionGate(LowPowerConfig config)
+    : controller_(config) {}
+
+void LowPowerSessionGate::reset() {
+  controller_.reset();
+  low_power_active_ = false;
+  latched_resume_state_ = SessionState::Ready;
+}
+
+LowPowerSessionDecision LowPowerSessionGate::evaluate(
+    const LowPowerSessionInput& input
+) {
+  const auto requested_resume_state =
+      input.session.state == SessionState::Active ? SessionState::Active
+                                                  : SessionState::Ready;
+
+  if (input.transition_in_flight) {
+    const bool was_low_power = low_power_active_;
+    reset();
+    return LowPowerSessionDecision {
+        .power =
+            LowPowerDecision {
+                .low_power = false,
+                .state_changed = was_low_power,
+                .transition = was_low_power ? "exit_low_power" : "stay_awake",
+                .reason_code = "session_transition_inhibited",
+                .entry_counter_seconds = 0,
+                .exit_counter_seconds = 0,
+            },
+        .resume_state = requested_resume_state,
+        .transition_inhibited = true,
+        .failure_suppressed = true,
+    };
+  }
+
+  const auto power = controller_.evaluate(input.sample);
+  if (power.state_changed && power.low_power) {
+    low_power_active_ = true;
+    latched_resume_state_ = requested_resume_state;
+  } else if (!power.low_power) {
+    low_power_active_ = false;
+  }
+
+  const auto resume_state =
+      power.low_power ? latched_resume_state_ : requested_resume_state;
+
+  return LowPowerSessionDecision {
+      .power = power,
+      .resume_state = resume_state,
+      .transition_inhibited = false,
+      .failure_suppressed = low_power_active_ ||
+          (power.state_changed && power.transition == "exit_low_power"),
+  };
+}
+
 std::string low_power_decision_to_json(const LowPowerDecision& decision) {
   std::ostringstream out;
   out << "{"
