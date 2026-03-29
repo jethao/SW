@@ -1,0 +1,4 @@
+interface:
+  display_name: "FW MGR"
+  short_description: "Alternate FW-ENG and FW-CR until the current firmware PR is review-clean"
+  default_prompt: "Use $fw-mgr to manage the AirHealth firmware queue by selecting only unblocked FIR tickets, invoking FW-ENG and FW-CR alternately on the active ticket until its PR is review-clean, generating SW/FW/fw-mgr.rpt, and then stopping until the PR is merged."

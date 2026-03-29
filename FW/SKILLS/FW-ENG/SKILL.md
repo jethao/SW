@@ -1,6 +1,6 @@
 ---
 name: fw-eng
-description: Execute AirHealth firmware work from Linear by reading backlog issues in the `FIR` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all firmware code in `SW/FW/Source`, adding unit tests for the implemented feature when they do not already exist, and creating one linked pull request per completed ticket. Use when Codex needs to act as the firmware implementation engineer for ready Linear tickets without starting blocked work.
+description: Execute AirHealth firmware work from Linear by reading backlog issues in the `FIR` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all firmware code in `SW/FW/Source`, adding unit tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, and creating each ticket branch from `main`. Use when Codex needs to act as the firmware implementation engineer for ready Linear tickets without starting blocked work.
 ---
 
 # Firmware Engineer
@@ -15,6 +15,7 @@ The job of this skill is to pick only firmware tickets that are truly ready, imp
 - Do not start a ticket that has any unresolved blocker.
 - Do not bundle multiple Linear tickets into one implementation PR.
 - Create exactly one PR per implemented ticket.
+- Create each ticket branch from the latest `main` branch baseline.
 - Link each PR to the original Linear ticket.
 - If unit tests for the implemented feature do not already exist, add them as part of the same ticket.
 - Do not implement epic-only or story-only umbrella tickets when there are child task tickets that should be delivered first.
@@ -130,7 +131,7 @@ Lack of existing unit tests is not a reason to skip them. If the feature is test
 
 After the ticket is implemented:
 
-- create a branch for that ticket
+- refresh `main` or `origin/main` and create the ticket branch from that baseline
 - commit only the ticket’s changes
 - open a PR dedicated to that ticket
 - include the Linear ticket key in the branch name, commit message, PR title, and PR body when possible

@@ -1,0 +1,40 @@
+FW-MGR REPORT
+Timestamp: 2026-03-28 19:21:14 PDT
+
+Lane status: waiting_for_merge
+
+Active ticket:
+- FIR-14
+- Title: Update shared session orchestrator for one-session-at-a-time flow
+- Linear URL: https://linear.app/airhealth/issue/FIR-14/update-shared-session-orchestrator-for-one-session-at-a-time-flow
+
+Active PR:
+- PR #3
+- Title: FIR-14 Update shared session orchestrator
+- URL: https://github.com/jethao/SW/pull/3
+- Branch: codex/fir-14-session-orchestrator
+- Commit: 508f7160e192c3f5cadfaff27f667994057e0d63
+- GitHub review state: no formal approval recorded
+
+Run actions:
+- Opened new firmware lane because no open firmware PR remained after FIR-2 merged
+- Invoked FW-ENG behavior for FIR-14
+- Invoked FW-CR behavior for PR #3
+
+Verification:
+- cmake configure passed
+- cmake build passed
+- ctest passed with pairing_test and session_test
+
+Latest review history:
+- No PR comments or review comments are currently open on PR #3
+- Latest FW-CR pass found no actionable review findings
+- Formal GitHub approval failed because the same account authored and reviewed the PR
+
+Approval readiness:
+- approval-ready by substantive review: yes
+- blocked by same-account GitHub approval rule: yes
+- waiting for merge before starting next ticket: yes
+
+Manager stop reason:
+- Current PR is review-clean and approval-ready, but FW-mgr must not auto-proceed until the PR is merged.
