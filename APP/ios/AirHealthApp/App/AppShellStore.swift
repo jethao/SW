@@ -129,6 +129,7 @@ struct ActionLockState {
 
 enum AppRoute {
     case home
+    case setup(PairingFlowState)
     case featureHub(SelectedFeatureContext)
     case featureAction(SelectedFeatureContext, FeatureAction)
 
@@ -136,6 +137,8 @@ enum AppRoute {
         switch self {
         case .home:
             return "home"
+        case let .setup(pairingState):
+            return "setup/\(pairingState.step.rawValue)"
         case let .featureHub(context):
             return "feature_hub/\(context.feature.rawValue)"
         case let .featureAction(context, action):
@@ -168,6 +171,86 @@ final class AppShellStore: ObservableObject {
                 lastVisitedRouteID: "home"
             )
         )
+    }
+
+    func openSetup() {
+        route = .setup(.permissionPrimer())
+    }
+
+    func denyBluetoothPermission() {
+        route = .setup(
+            PairingFlowState(
+                step: .permissionDenied,
+                discoveredDevice: nil,
+                recoveryMessage: "Bluetooth access is required to discover your AirHealth device."
+            )
+        )
+    }
+
+    func grantBluetoothPermission() {
+        route = .setup(.discovering())
+    }
+
+    func discoverDevice() {
+        route = .setup(
+            PairingFlowState(
+                step: .deviceDiscovered,
+                discoveredDevice: .defaultDevice(),
+                recoveryMessage: nil
+            )
+        )
+    }
+
+    func connectDiscoveredDevice() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .connecting,
+                discoveredDevice: device,
+                recoveryMessage: nil
+            )
+        )
+    }
+
+    func confirmDeviceConnection() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .connected,
+                discoveredDevice: device,
+                recoveryMessage: nil
+            )
+        )
+    }
+
+    func markDiscoveryTimeout() {
+        route = .setup(
+            PairingFlowState(
+                step: .timeout,
+                discoveredDevice: nil,
+                recoveryMessage: "No AirHealth device responded before the scan timeout. Retry to scan again."
+            )
+        )
+    }
+
+    func retrySetupAfterFailure() {
+        route = .setup(.permissionPrimer())
+    }
+
+    func restartDiscovery() {
+        route = .setup(.discovering())
+    }
+
+    func exitSetup() {
+        route = .home
     }
 
     func openAction(_ action: FeatureAction) {
@@ -243,6 +326,8 @@ final class AppShellStore: ObservableObject {
     private func currentFeatureContext() -> SelectedFeatureContext? {
         switch route {
         case .home:
+            return nil
+        case .setup:
             return nil
         case let .featureHub(context):
             return context

@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private fun buildContent(): View {
         return when (val route = routeState.route) {
             FeatureHubRoute.Home -> buildHomeView()
+            is FeatureHubRoute.Setup -> buildSetupView(route.pairingState)
             is FeatureHubRoute.Feature -> buildFeatureView(route.context)
             is FeatureHubRoute.Action -> buildActionView(route.context, route.action)
         }
@@ -45,6 +46,15 @@ class MainActivity : AppCompatActivity() {
                     "Start from the home feature hub, keep the selected feature context, and route to the next action from there."
                 )
             )
+            addView(
+                actionButton("Add Device") {
+                    routeState.openSetup()
+                    renderRoute()
+                }
+            )
+            addView(
+                bodyCopy("Start BLE setup, request Bluetooth access, discover nearby devices, and connect before claim/setup completion.")
+            )
 
             FeatureKind.entries.forEach { feature ->
                 addView(
@@ -54,6 +64,136 @@ class MainActivity : AppCompatActivity() {
                     }
                 )
                 addView(bodyCopy(feature.subtitle))
+            }
+        }
+    }
+
+    private fun buildSetupView(pairingState: PairingFlowState): View {
+        title = "Add Device"
+
+        return verticalLayout().apply {
+            addView(headline("BLE setup"))
+            addView(
+                bodyCopy(
+                    "Move from setup entry through Bluetooth permission, discovery, and connection before claim and mode setup."
+                )
+            )
+            addView(caption("Current route ID: setup/${pairingState.step.routeId}"))
+
+            when (pairingState.step) {
+                PairingStep.PERMISSION_PRIMER -> {
+                    addView(bodyCopy("AirHealth needs Bluetooth access to discover and connect to your device."))
+                    addView(
+                        actionButton("Allow Bluetooth") {
+                            routeState.grantBluetoothPermission()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Not Now") {
+                            routeState.denyBluetoothPermission()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.PERMISSION_DENIED -> {
+                    addView(bodyCopy(pairingState.recoveryMessage ?: "Bluetooth access is required."))
+                    addView(
+                        actionButton("Retry Permission") {
+                            routeState.retrySetupAfterFailure()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Back To Home") {
+                            routeState.exitSetup()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.DISCOVERING -> {
+                    addView(bodyCopy("Scanning for nearby AirHealth devices."))
+                    addView(
+                        actionButton("Use Discovered Device") {
+                            routeState.discoverDevice()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("No Device Found") {
+                            routeState.markDiscoveryTimeout()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.DEVICE_DISCOVERED -> {
+                    val device = pairingState.discoveredDevice
+                    addView(bodyCopy("AirHealth device discovered and ready to connect."))
+                    if (device != null) {
+                        addView(bodyCopy("Device: ${device.name}"))
+                        addView(caption("Protocol: ${device.protocolVersion} • Signal: ${device.signalLabel}"))
+                    }
+                    addView(
+                        actionButton("Connect Device") {
+                            routeState.connectDiscoveredDevice()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Rescan") {
+                            routeState.restartDiscovery()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.CONNECTING -> {
+                    val device = pairingState.discoveredDevice
+                    addView(bodyCopy("Connecting over BLE and confirming protocol compatibility."))
+                    if (device != null) {
+                        addView(bodyCopy("Connecting to ${device.name}"))
+                    }
+                    addView(
+                        actionButton("Finish Connection") {
+                            routeState.confirmDeviceConnection()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.CONNECTED -> {
+                    val device = pairingState.discoveredDevice
+                    addView(bodyCopy("Device connected. Claim and initial mode setup continue in the next onboarding ticket."))
+                    if (device != null) {
+                        addView(bodyCopy("Connected device: ${device.name}"))
+                        addView(caption("Protocol: ${device.protocolVersion}"))
+                    }
+                    addView(
+                        actionButton("Back To Home") {
+                            routeState.exitSetup()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.TIMEOUT -> {
+                    addView(bodyCopy(pairingState.recoveryMessage ?: "Discovery timed out."))
+                    addView(
+                        actionButton("Retry Scan") {
+                            routeState.restartDiscovery()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Back To Home") {
+                            routeState.exitSetup()
+                            renderRoute()
+                        }
+                    )
+                }
             }
         }
     }
