@@ -1,5 +1,7 @@
 #pragma once
 
+#include "airhealth/fw/session.hpp"
+
 #include <string>
 
 namespace airhealth::fw {
@@ -25,6 +27,19 @@ struct LowPowerDecision {
   int exit_counter_seconds = 0;
 };
 
+struct LowPowerSessionInput {
+  LowPowerSample sample {};
+  SessionSnapshot session {};
+  bool transition_in_flight = false;
+};
+
+struct LowPowerSessionDecision {
+  LowPowerDecision power {};
+  SessionState resume_state = SessionState::Ready;
+  bool transition_inhibited = false;
+  bool failure_suppressed = false;
+};
+
 class LowPowerController {
  public:
   explicit LowPowerController(LowPowerConfig config = {});
@@ -38,6 +53,22 @@ class LowPowerController {
   bool low_power_ = false;
   int entry_counter_seconds_ = 0;
   int exit_counter_seconds_ = 0;
+};
+
+class LowPowerSessionGate {
+ public:
+  explicit LowPowerSessionGate(LowPowerConfig config = {});
+
+  void reset();
+
+  [[nodiscard]] LowPowerSessionDecision evaluate(
+      const LowPowerSessionInput& input
+  );
+
+ private:
+  LowPowerController controller_ {};
+  bool low_power_active_ = false;
+  SessionState latched_resume_state_ = SessionState::Ready;
 };
 
 [[nodiscard]] std::string low_power_decision_to_json(
