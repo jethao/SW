@@ -45,6 +45,37 @@ enum ActionLockReasonCode: String {
     case conflictingActionInProgress = "conflicting_action_in_progress"
 }
 
+enum ActionGateOutcome: String {
+    case allowed = "allowed"
+    case blocked = "blocked"
+}
+
+struct ActionGateEvent {
+    let feature: String
+    let requestedAction: String
+    let outcome: String
+    let activeAction: String?
+    let reasonCode: String?
+
+    var payload: [String: String] {
+        var payload = [
+            "feature": feature,
+            "requested_action": requestedAction,
+            "outcome": outcome,
+        ]
+
+        if let activeAction {
+            payload["active_action"] = activeAction
+        }
+
+        if let reasonCode {
+            payload["reason_code"] = reasonCode
+        }
+
+        return payload
+    }
+}
+
 struct BlockedActionAttempt {
     let requestedFeature: FeatureKind
     let requestedAction: ManagedAction
@@ -117,6 +148,7 @@ enum AppRoute {
 final class AppShellStore: ObservableObject {
     @Published private(set) var route: AppRoute = .home
     @Published private(set) var actionLockState = ActionLockState()
+    @Published private(set) var actionGateEvents: [ActionGateEvent] = []
 
     var lastBlockedActionAttempt: BlockedActionAttempt? {
         actionLockState.blockedAttempt
@@ -143,16 +175,38 @@ final class AppShellStore: ObservableObject {
             return
         }
 
+        let requestedAction = ManagedAction.from(action)
         var nextLockState = actionLockState
         let wasAcquired = nextLockState.tryAcquire(
             feature: context.feature,
-            action: ManagedAction.from(action)
+            action: requestedAction
         )
         actionLockState = nextLockState
 
         guard wasAcquired else {
+            if let blockedAttempt = nextLockState.blockedAttempt {
+                actionGateEvents.append(
+                    ActionGateEvent(
+                        feature: blockedAttempt.requestedFeature.rawValue,
+                        requestedAction: blockedAttempt.requestedAction.rawValue,
+                        outcome: ActionGateOutcome.blocked.rawValue,
+                        activeAction: blockedAttempt.activeAction.rawValue,
+                        reasonCode: blockedAttempt.reasonCode.rawValue
+                    )
+                )
+            }
             return
         }
+
+        actionGateEvents.append(
+            ActionGateEvent(
+                feature: context.feature.rawValue,
+                requestedAction: requestedAction.rawValue,
+                outcome: ActionGateOutcome.allowed.rawValue,
+                activeAction: nil,
+                reasonCode: nil
+            )
+        )
 
         route = .featureAction(
             SelectedFeatureContext(

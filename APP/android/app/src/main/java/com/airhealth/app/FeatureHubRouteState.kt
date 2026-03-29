@@ -60,6 +60,8 @@ class FeatureHubRouteState(
     var actionLockState: ActionLockState = ActionLockState()
         private set
 
+    val actionGateAnalytics = ActionGateAnalytics()
+
     val lastBlockedActionAttempt: BlockedActionAttempt?
         get() = actionLockState.blockedAttempt
 
@@ -75,14 +77,21 @@ class FeatureHubRouteState(
 
     fun openAction(action: FeatureAction) {
         val currentContext = currentFeatureContext() ?: return
+        val requestedAction = ManagedAction.fromFeatureAction(action)
         actionLockState = actionLockState.tryAcquire(
             feature = currentContext.feature,
-            action = ManagedAction.fromFeatureAction(action),
+            action = requestedAction,
         )
 
-        if (actionLockState.blockedAttempt != null) {
+        actionLockState.blockedAttempt?.let { blockedAttempt ->
+            actionGateAnalytics.recordBlocked(blockedAttempt)
             return
         }
+
+        actionGateAnalytics.recordAllowed(
+            feature = currentContext.feature,
+            requestedAction = requestedAction,
+        )
 
         route = FeatureHubRoute.Action(
             context = currentContext.copy(
