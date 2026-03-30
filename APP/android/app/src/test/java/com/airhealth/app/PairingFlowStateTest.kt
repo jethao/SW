@@ -44,4 +44,33 @@ class PairingFlowStateTest {
         route = routeState.route as FeatureHubRoute.Setup
         assertEquals(PairingStep.DISCOVERING, route.pairingState.step)
     }
+
+    @Test
+    fun claimFailureRecoversAndModeSelectionFinishesSetup() {
+        val routeState = FeatureHubRouteState()
+
+        routeState.openSetup()
+        routeState.grantBluetoothPermission()
+        routeState.discoverDevice()
+        routeState.connectDiscoveredDevice()
+        routeState.confirmDeviceConnection()
+        routeState.startClaimDevice()
+        routeState.failClaimDevice()
+
+        var route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.CLAIM_FAILED, route.pairingState.step)
+        assertTrue(route.pairingState.recoveryMessage?.contains("Retry claim") == true)
+
+        routeState.retryClaimDevice()
+        route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.CLAIMING, route.pairingState.step)
+
+        routeState.completeClaimDevice()
+        routeState.selectSetupMode(SetupMode.FAT_BURNING)
+
+        route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.SETUP_COMPLETE, route.pairingState.step)
+        assertEquals(SetupMode.FAT_BURNING, route.pairingState.selectedMode)
+        assertEquals("Primary AirHealth account", route.pairingState.claimOwnerLabel)
+    }
 }

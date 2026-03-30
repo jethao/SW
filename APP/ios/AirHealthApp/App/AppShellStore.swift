@@ -182,7 +182,9 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .permissionDenied,
                 discoveredDevice: nil,
-                recoveryMessage: "Bluetooth access is required to discover your AirHealth device."
+                recoveryMessage: "Bluetooth access is required to discover your AirHealth device.",
+                claimOwnerLabel: nil,
+                selectedMode: nil
             )
         )
     }
@@ -196,7 +198,9 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .deviceDiscovered,
                 discoveredDevice: .defaultDevice(),
-                recoveryMessage: nil
+                recoveryMessage: nil,
+                claimOwnerLabel: nil,
+                selectedMode: nil
             )
         )
     }
@@ -211,7 +215,9 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .connecting,
                 discoveredDevice: device,
-                recoveryMessage: nil
+                recoveryMessage: nil,
+                claimOwnerLabel: nil,
+                selectedMode: nil
             )
         )
     }
@@ -226,7 +232,93 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .connected,
                 discoveredDevice: device,
-                recoveryMessage: nil
+                recoveryMessage: nil,
+                claimOwnerLabel: nil,
+                selectedMode: nil
+            )
+        )
+    }
+
+    func startClaimDevice() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .claiming,
+                discoveredDevice: device,
+                recoveryMessage: nil,
+                claimOwnerLabel: nil,
+                selectedMode: nil
+            )
+        )
+    }
+
+    func completeClaimDevice() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .modeSelection,
+                discoveredDevice: device,
+                recoveryMessage: nil,
+                claimOwnerLabel: "Primary AirHealth account",
+                selectedMode: nil
+            )
+        )
+    }
+
+    func failClaimDevice() {
+        guard case let .setup(pairingState) = route else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .claimFailed,
+                discoveredDevice: pairingState.discoveredDevice,
+                recoveryMessage: "We could not bind this device yet. Retry claim to continue setup.",
+                claimOwnerLabel: pairingState.claimOwnerLabel,
+                selectedMode: pairingState.selectedMode
+            )
+        )
+    }
+
+    func retryClaimDevice() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .claiming,
+                discoveredDevice: device,
+                recoveryMessage: nil,
+                claimOwnerLabel: nil,
+                selectedMode: nil
+            )
+        )
+    }
+
+    func selectSetupMode(_ mode: SetupMode) {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .setupComplete,
+                discoveredDevice: device,
+                recoveryMessage: nil,
+                claimOwnerLabel: pairingState.claimOwnerLabel ?? "Primary AirHealth account",
+                selectedMode: mode
             )
         )
     }
@@ -236,7 +328,9 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .timeout,
                 discoveredDevice: nil,
-                recoveryMessage: "No AirHealth device responded before the scan timeout. Retry to scan again."
+                recoveryMessage: "No AirHealth device responded before the scan timeout. Retry to scan again.",
+                claimOwnerLabel: nil,
+                selectedMode: nil
             )
         )
     }

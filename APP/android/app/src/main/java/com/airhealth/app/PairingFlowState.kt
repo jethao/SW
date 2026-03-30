@@ -9,7 +9,19 @@ enum class PairingStep(
     DEVICE_DISCOVERED("device_discovered"),
     CONNECTING("connecting"),
     CONNECTED("connected"),
+    CLAIMING("claiming"),
+    CLAIM_FAILED("claim_failed"),
+    MODE_SELECTION("mode_selection"),
+    SETUP_COMPLETE("setup_complete"),
     TIMEOUT("timeout"),
+}
+
+enum class SetupMode(
+    val routeId: String,
+    val title: String,
+) {
+    ORAL_HEALTH("oral_health", "Oral Health"),
+    FAT_BURNING("fat_burning", "Fat Burning"),
 }
 
 data class DiscoveredDeviceSummary(
@@ -22,6 +34,8 @@ data class PairingFlowState(
     val step: PairingStep,
     val discoveredDevice: DiscoveredDeviceSummary? = null,
     val recoveryMessage: String? = null,
+    val claimOwnerLabel: String? = null,
+    val selectedMode: SetupMode? = null,
 ) {
     companion object {
         fun permissionPrimer(): PairingFlowState {

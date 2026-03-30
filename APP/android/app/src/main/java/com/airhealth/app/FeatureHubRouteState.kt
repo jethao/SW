@@ -126,6 +126,63 @@ class FeatureHubRouteState(
         )
     }
 
+    fun startClaimDevice() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.CLAIMING,
+                discoveredDevice = device,
+            ),
+        )
+    }
+
+    fun completeClaimDevice() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.MODE_SELECTION,
+                discoveredDevice = device,
+                claimOwnerLabel = "Primary AirHealth account",
+            ),
+        )
+    }
+
+    fun failClaimDevice() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        route = FeatureHubRoute.Setup(
+            currentRoute.pairingState.copy(
+                step = PairingStep.CLAIM_FAILED,
+                recoveryMessage = "We could not bind this device yet. Retry claim to continue setup.",
+            ),
+        )
+    }
+
+    fun retryClaimDevice() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.CLAIMING,
+                discoveredDevice = device,
+            ),
+        )
+    }
+
+    fun selectSetupMode(mode: SetupMode) {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.SETUP_COMPLETE,
+                discoveredDevice = device,
+                claimOwnerLabel = currentRoute.pairingState.claimOwnerLabel ?: "Primary AirHealth account",
+                selectedMode = mode,
+            ),
+        )
+    }
+
     fun markDiscoveryTimeout() {
         route = FeatureHubRoute.Setup(
             PairingFlowState(

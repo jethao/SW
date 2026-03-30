@@ -7,7 +7,25 @@ enum PairingStep: String {
     case deviceDiscovered = "device_discovered"
     case connecting = "connecting"
     case connected = "connected"
+    case claiming = "claiming"
+    case claimFailed = "claim_failed"
+    case modeSelection = "mode_selection"
+    case setupComplete = "setup_complete"
     case timeout = "timeout"
+}
+
+enum SetupMode: String, CaseIterable {
+    case oralHealth = "oral_health"
+    case fatBurning = "fat_burning"
+
+    var title: String {
+        switch self {
+        case .oralHealth:
+            return "Oral Health"
+        case .fatBurning:
+            return "Fat Burning"
+        }
+    }
 }
 
 struct DiscoveredDeviceSummary {
@@ -20,13 +38,15 @@ struct PairingFlowState {
     let step: PairingStep
     let discoveredDevice: DiscoveredDeviceSummary?
     let recoveryMessage: String?
+    let claimOwnerLabel: String?
+    let selectedMode: SetupMode?
 
     static func permissionPrimer() -> PairingFlowState {
-        PairingFlowState(step: .permissionPrimer, discoveredDevice: nil, recoveryMessage: nil)
+        PairingFlowState(step: .permissionPrimer, discoveredDevice: nil, recoveryMessage: nil, claimOwnerLabel: nil, selectedMode: nil)
     }
 
     static func discovering() -> PairingFlowState {
-        PairingFlowState(step: .discovering, discoveredDevice: nil, recoveryMessage: nil)
+        PairingFlowState(step: .discovering, discoveredDevice: nil, recoveryMessage: nil, claimOwnerLabel: nil, selectedMode: nil)
     }
 
     static func defaultDevice() -> DiscoveredDeviceSummary {
