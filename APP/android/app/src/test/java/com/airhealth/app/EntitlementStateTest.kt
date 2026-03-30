@@ -81,6 +81,32 @@ class EntitlementStateTest {
     }
 
     @Test
+    fun selectorKeepsActiveAccessAtFreshnessBoundaryThenTransitionsToReadOnly() {
+        val verifiedAt = 100L
+        val state = EntitlementCacheState(
+            snapshot = CachedEntitlementSnapshot(
+                sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                verifiedAtEpochMillis = verifiedAt,
+            ),
+            isBackendReachable = true,
+        )
+
+        val boundaryEffective = EntitlementEvaluator.deriveEffectiveState(
+            state = state,
+            nowEpochMillis = verifiedAt + (24L * 60L * 60L * 1000L),
+        )
+        assertEquals(EffectiveEntitlementMode.ACTIVE, boundaryEffective.mode)
+        assertEquals(EntitlementFreshness.VERIFIED, boundaryEffective.freshness)
+
+        val staleEffective = EntitlementEvaluator.deriveEffectiveState(
+            state = state,
+            nowEpochMillis = verifiedAt + (24L * 60L * 60L * 1000L) + 1L,
+        )
+        assertEquals(EffectiveEntitlementMode.READ_ONLY, staleEffective.mode)
+        assertEquals(EntitlementFreshness.STALE_CACHE, staleEffective.freshness)
+    }
+
+    @Test
     fun selectorTreatsFreshOfflineActiveSnapshotAsTemporaryAccess() {
         val state = EntitlementCacheState(
             snapshot = CachedEntitlementSnapshot(
@@ -178,5 +204,24 @@ class EntitlementStateTest {
         assertFalse(effective.canRequestLiveSuggestions)
         assertTrue(effective.canUseCachedSuggestions)
         assertTrue(effective.canViewHistory)
+    }
+
+    @Test
+    fun cacheClearedPreservesObservedVerificationFailureContext() {
+        val reduced = EntitlementCacheReducer.reduce(
+            state = EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 1_500L,
+            ),
+            action = EntitlementCacheAction.CacheCleared(observedAtEpochMillis = 2_000L),
+        )
+
+        assertEquals(null, reduced.snapshot)
+        assertFalse(reduced.isBackendReachable)
+        assertEquals(2_000L, reduced.lastVerificationAttemptAtEpochMillis)
     }
 }
