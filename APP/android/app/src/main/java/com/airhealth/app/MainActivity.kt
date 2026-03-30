@@ -340,6 +340,13 @@ class MainActivity : AppCompatActivity() {
                 addView(caption("Reason code: ${blockedAttempt.reasonCode.code}"))
             }
 
+            routeState.goalFor(context.feature)?.let { goal ->
+                addView(headline("Current goal"))
+                addView(bodyCopy(goal.summary))
+                addView(caption("Target: ${goal.targetLabel} • ${goal.cadenceLabel}"))
+                addView(caption("Local revision ${goal.revision}"))
+            }
+
             FeatureAction.entries.forEach { action ->
                 val actionSurface = featureActionSurfaceState(action, entitlement)
                 addView(
@@ -369,6 +376,10 @@ class MainActivity : AppCompatActivity() {
         context: SelectedFeatureContext,
         action: FeatureAction,
     ): View {
+        if (action == FeatureAction.SET_GOALS) {
+            return buildGoalActionView(context)
+        }
+
         title = action.title
         val entitlement = routeState.effectiveEntitlement
 
@@ -417,6 +428,63 @@ class MainActivity : AppCompatActivity() {
                         addView(caption(detail))
                     }
                 }
+            }
+
+            addView(
+                actionButton("Return To ${context.feature.title}") {
+                    routeState.returnToFeature()
+                    renderRoute()
+                }
+            )
+            addView(
+                secondaryButton("Return To Home") {
+                    routeState.returnHome()
+                    renderRoute()
+                }
+            )
+        }
+    }
+
+    private fun buildGoalActionView(context: SelectedFeatureContext): View {
+        title = FeatureAction.SET_GOALS.title
+
+        return verticalLayout().apply {
+            addView(headline("Goal planner"))
+            addView(
+                bodyCopy(
+                    "Create or revise a feature-specific goal and keep it cached locally so the same selection is available when this feature is reopened."
+                )
+            )
+            addView(bodyCopy("Selected feature: ${context.feature.title}"))
+            addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+
+            val currentGoal = routeState.goalFor(context.feature)
+            if (currentGoal != null) {
+                addView(headline("Current cached goal"))
+                addView(bodyCopy(currentGoal.summary))
+                addView(caption("Target: ${currentGoal.targetLabel}"))
+                addView(caption("Cadence: ${currentGoal.cadenceLabel}"))
+                addView(caption("Local revision ${currentGoal.revision}"))
+                addView(
+                    secondaryButton("Clear Goal") {
+                        routeState.clearGoal(context.feature)
+                        renderRoute()
+                    }
+                )
+            } else {
+                addView(bodyCopy("No cached goal yet for ${context.feature.title}. Choose a draft below to create one locally."))
+            }
+
+            addView(headline("Goal drafts"))
+            goalTemplatesFor(context.feature).forEach { template ->
+                addView(
+                    actionButton(template.title) {
+                        routeState.applyGoalTemplate(template)
+                        renderRoute()
+                    }
+                )
+                addView(bodyCopy(template.summary))
+                addView(caption("Target: ${template.targetLabel} • ${template.cadenceLabel}"))
             }
 
             addView(

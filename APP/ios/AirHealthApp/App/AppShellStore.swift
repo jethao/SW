@@ -177,6 +177,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var actionGateEvents: [ActionGateEvent] = []
     @Published private(set) var pairingRecoveryEvents: [PairingRecoveryEvent] = []
     @Published private(set) var entitlementCacheState: EntitlementCacheState
+    @Published private(set) var goalCacheState = GoalCacheState()
 
     var lastBlockedActionAttempt: BlockedActionAttempt? {
         actionLockState.blockedAttempt
@@ -198,8 +199,26 @@ final class AppShellStore: ObservableObject {
         )
     }
 
+    func goal(for feature: FeatureKind) -> FeatureGoal? {
+        goalCacheState.goal(for: feature)
+    }
+
     func replaceEntitlementCacheState(_ state: EntitlementCacheState) {
         entitlementCacheState = state
+    }
+
+    func applyGoalTemplate(_ template: GoalDraftTemplate) {
+        goalCacheState = goalCacheState.upsert(
+            feature: template.feature,
+            summary: template.summary,
+            targetLabel: template.targetLabel,
+            cadenceLabel: template.cadenceLabel,
+            updatedAtEpochMillis: nowEpochMillis()
+        )
+    }
+
+    func clearGoal(feature: FeatureKind) {
+        goalCacheState = goalCacheState.remove(feature: feature)
     }
 
     func openFeature(_ feature: FeatureKind) {

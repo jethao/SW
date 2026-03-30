@@ -147,6 +147,7 @@ struct AppShellView: View {
             FeatureActionsView(
                 context: context,
                 entitlement: store.effectiveEntitlement,
+                currentGoal: store.goal(for: context.feature),
                 blockedAttempt: store.lastBlockedActionAttempt,
                 onSelectAction: { action in
                     store.openAction(action)
@@ -156,22 +157,42 @@ struct AppShellView: View {
                 }
             )
         case let .featureAction(context, action):
-            FeatureActionDestinationView(
-                context: context,
-                action: action,
-                entitlement: store.effectiveEntitlement,
-                activeAction: store.activeManagedAction,
-                blockedAttempt: store.lastBlockedActionAttempt,
-                onTryAction: { candidate in
-                    store.openAction(candidate)
-                },
-                onReturnToFeature: {
-                    store.returnToFeature()
-                },
-                onReturnHome: {
-                    store.returnHome()
-                }
-            )
+            if action == .setGoals {
+                FeatureGoalEditorView(
+                    context: context,
+                    currentGoal: store.goal(for: context.feature),
+                    templates: goalTemplates(for: context.feature),
+                    onApplyTemplate: { template in
+                        store.applyGoalTemplate(template)
+                    },
+                    onClearGoal: {
+                        store.clearGoal(feature: context.feature)
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
+            } else {
+                FeatureActionDestinationView(
+                    context: context,
+                    action: action,
+                    entitlement: store.effectiveEntitlement,
+                    activeAction: store.activeManagedAction,
+                    blockedAttempt: store.lastBlockedActionAttempt,
+                    onTryAction: { candidate in
+                        store.openAction(candidate)
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
+            }
         }
     }
 
@@ -454,6 +475,7 @@ private struct PairingSetupView: View {
 private struct FeatureActionsView: View {
     let context: SelectedFeatureContext
     let entitlement: EffectiveEntitlement
+    let currentGoal: FeatureGoal?
     let blockedAttempt: BlockedActionAttempt?
     let onSelectAction: (FeatureAction) -> Void
     let onReturnHome: () -> Void
@@ -487,6 +509,19 @@ private struct FeatureActionsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if let currentGoal {
+                Text("Current goal")
+                    .font(.headline)
+                Text(currentGoal.summary)
+                    .foregroundStyle(.secondary)
+                Text("Target: \(currentGoal.targetLabel) • \(currentGoal.cadenceLabel)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text("Local revision \(currentGoal.revision)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
             ForEach(FeatureAction.allCases) { action in
                 let actionSurface = featureActionSurfaceState(action: action, entitlement: entitlement)
                 Button(action.title) {
@@ -504,6 +539,79 @@ private struct FeatureActionsView: View {
             }
 
             Button("Back To Home") {
+                onReturnHome()
+            }
+            .buttonStyle(.bordered)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct FeatureGoalEditorView: View {
+    let context: SelectedFeatureContext
+    let currentGoal: FeatureGoal?
+    let templates: [GoalDraftTemplate]
+    let onApplyTemplate: (GoalDraftTemplate) -> Void
+    let onClearGoal: () -> Void
+    let onReturnToFeature: () -> Void
+    let onReturnHome: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Goal planner")
+                .font(.title3.bold())
+
+            Text("Create or revise a feature-specific goal and keep it cached locally so the same selection is available when this feature is reopened.")
+                .foregroundStyle(.secondary)
+
+            Text("Selected feature: \(context.feature.title)")
+            Text("Return route ID: \(context.lastVisitedRouteID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            if let currentGoal {
+                Text("Current cached goal")
+                    .font(.headline)
+                Text(currentGoal.summary)
+                    .foregroundStyle(.secondary)
+                Text("Target: \(currentGoal.targetLabel)")
+                Text("Cadence: \(currentGoal.cadenceLabel)")
+                Text("Local revision \(currentGoal.revision)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                Button("Clear Goal") {
+                    onClearGoal()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text("No cached goal yet for \(context.feature.title). Choose a draft below to create one locally.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("Goal drafts")
+                .font(.headline)
+
+            ForEach(templates) { template in
+                Button(template.title) {
+                    onApplyTemplate(template)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Text(template.summary)
+                    .foregroundStyle(.secondary)
+                Text("Target: \(template.targetLabel) • \(template.cadenceLabel)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Return To \(context.feature.title)") {
+                onReturnToFeature()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Return To Home") {
                 onReturnHome()
             }
             .buttonStyle(.bordered)
