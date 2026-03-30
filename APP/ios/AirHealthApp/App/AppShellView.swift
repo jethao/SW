@@ -80,6 +80,7 @@ struct AppShellView: View {
         switch store.route {
         case .home:
             FeatureHubHomeView(
+                entitlement: store.effectiveEntitlement,
                 onStartSetup: {
                     store.openSetup()
                 },
@@ -145,6 +146,7 @@ struct AppShellView: View {
         case let .featureHub(context):
             FeatureActionsView(
                 context: context,
+                entitlement: store.effectiveEntitlement,
                 blockedAttempt: store.lastBlockedActionAttempt,
                 onSelectAction: { action in
                     store.openAction(action)
@@ -157,6 +159,7 @@ struct AppShellView: View {
             FeatureActionDestinationView(
                 context: context,
                 action: action,
+                entitlement: store.effectiveEntitlement,
                 activeAction: store.activeManagedAction,
                 blockedAttempt: store.lastBlockedActionAttempt,
                 onTryAction: { candidate in
@@ -187,6 +190,7 @@ struct AppShellView: View {
 }
 
 private struct FeatureHubHomeView: View {
+    let entitlement: EffectiveEntitlement
     let onStartSetup: () -> Void
     let onSelectFeature: (FeatureKind) -> Void
 
@@ -198,6 +202,10 @@ private struct FeatureHubHomeView: View {
 
                 Text("Start from the home feature hub, keep the selected feature context, and route to the next action from there.")
                     .foregroundStyle(.secondary)
+
+                if let banner = entitlementBannerState(entitlement) {
+                    EntitlementBannerView(banner: banner)
+                }
 
                 Button("Add Device") {
                     onStartSetup()
@@ -445,6 +453,7 @@ private struct PairingSetupView: View {
 
 private struct FeatureActionsView: View {
     let context: SelectedFeatureContext
+    let entitlement: EffectiveEntitlement
     let blockedAttempt: BlockedActionAttempt?
     let onSelectAction: (FeatureAction) -> Void
     let onReturnHome: () -> Void
@@ -464,6 +473,10 @@ private struct FeatureActionsView: View {
             Text("Selecting one action acquires the global action lock until that flow resolves.")
                 .foregroundStyle(.secondary)
 
+            if let banner = entitlementBannerState(entitlement) {
+                EntitlementBannerView(banner: banner)
+            }
+
             if let blockedAttempt {
                 Text("Blocked action")
                     .font(.headline)
@@ -475,10 +488,19 @@ private struct FeatureActionsView: View {
             }
 
             ForEach(FeatureAction.allCases) { action in
+                let actionSurface = featureActionSurfaceState(action: action, entitlement: entitlement)
                 Button(action.title) {
                     onSelectAction(action)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!actionSurface.isEnabled)
+                .opacity(actionSurface.isEnabled ? 1 : 0.58)
+
+                if let detail = actionSurface.detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Button("Back To Home") {
@@ -495,6 +517,7 @@ private struct FeatureActionsView: View {
 private struct FeatureActionDestinationView: View {
     let context: SelectedFeatureContext
     let action: FeatureAction
+    let entitlement: EffectiveEntitlement
     let activeAction: ManagedAction?
     let blockedAttempt: BlockedActionAttempt?
     let onTryAction: (FeatureAction) -> Void
@@ -517,6 +540,10 @@ private struct FeatureActionDestinationView: View {
                 .font(.footnote.monospaced())
                 .foregroundStyle(.secondary)
 
+            if let banner = entitlementBannerState(entitlement) {
+                EntitlementBannerView(banner: banner)
+            }
+
             if let blockedAttempt {
                 Text("Blocked action")
                     .font(.headline)
@@ -536,10 +563,19 @@ private struct FeatureActionDestinationView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
+                    let actionSurface = featureActionSurfaceState(action: candidate, entitlement: entitlement)
                     Button("Try \(candidate.title)") {
                         onTryAction(candidate)
                     }
                     .buttonStyle(.bordered)
+                    .disabled(!actionSurface.isEnabled)
+                    .opacity(actionSurface.isEnabled ? 1 : 0.58)
+
+                    if let detail = actionSurface.detail {
+                        Text(detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -557,4 +593,96 @@ private struct FeatureActionDestinationView: View {
         }
         .padding()
     }
+}
+
+private struct EntitlementBannerState {
+    let title: String
+    let message: String
+}
+
+private struct FeatureActionSurfaceState {
+    let isEnabled: Bool
+    let detail: String?
+}
+
+private struct EntitlementBannerView: View {
+    let banner: EntitlementBannerState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(banner.title)
+                .font(.headline)
+            Text(banner.message)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private func entitlementBannerState(_ entitlement: EffectiveEntitlement) -> EntitlementBannerState? {
+    switch entitlement.mode {
+    case .active:
+        return nil
+    case .temporaryAccess:
+        return EntitlementBannerState(
+            title: "Temporary access",
+            message: "Verification is temporarily unavailable. You can still view history and consult resources, but new sessions, goal edits, and live suggestions stay paused until verification recovers."
+        )
+    case .readOnly:
+        let message: String
+        switch entitlement.freshness {
+        case .staleCache:
+            message = "Your last verified access is stale. History and consult resources remain available, but measurement, goal changes, and live suggestions stay locked until entitlement is verified again."
+        case .inactiveCache, .verified, .missingCache, .freshCache:
+            message = "Your access is currently read-only. History and consult resources remain available, but measurement, goal changes, and live suggestions stay locked until active entitlement returns."
+        }
+
+        return EntitlementBannerState(
+            title: "Read-only mode",
+            message: message
+        )
+    }
+}
+
+private func featureActionSurfaceState(
+    action: FeatureAction,
+    entitlement: EffectiveEntitlement
+) -> FeatureActionSurfaceState {
+    if entitlement.mode == .active {
+        return FeatureActionSurfaceState(isEnabled: true, detail: nil)
+    }
+
+    let isEnabled: Bool
+    switch action {
+    case .measure:
+        isEnabled = entitlement.canStartNewSessions
+    case .setGoals:
+        isEnabled = entitlement.canEditGoals
+    case .getSuggestion:
+        isEnabled = entitlement.canRequestLiveSuggestions
+    case .viewHistory, .consultProfessionals:
+        isEnabled = true
+    }
+
+    guard !isEnabled else {
+        return FeatureActionSurfaceState(isEnabled: true, detail: nil)
+    }
+
+    let detail: String
+    switch entitlement.mode {
+    case .active:
+        detail = ""
+    case .temporaryAccess:
+        detail = "\(action.title) is unavailable during Temporary access. Verify entitlement again to continue."
+    case .readOnly:
+        detail = "\(action.title) is unavailable in Read-only mode. Restore active entitlement to continue."
+    }
+
+    return FeatureActionSurfaceState(
+        isEnabled: false,
+        detail: detail
+    )
 }
