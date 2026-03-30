@@ -182,6 +182,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var sessionHistoryStoreState = SessionHistoryStoreState()
     @Published private(set) var sessionSyncQueueState = SessionSyncQueueState()
     @Published private(set) var exportAuditStoreState = ExportAuditStoreState()
+    @Published private(set) var exportPermissionStoreState = HealthExportPermissionStoreState()
 
     private var sampleSessionOrdinal: Int64 = 0
 
@@ -225,8 +226,21 @@ final class AppShellStore: ObservableObject {
         sessionSyncQueueState.activeJob(for: feature)
     }
 
-    func exportAuditSurface(for feature: FeatureKind) -> ExportAuditSurfaceState {
-        exportAuditStoreState.surface(for: feature)
+    func exportAuditSurface(
+        for feature: FeatureKind,
+        platform: HealthExportPlatform
+    ) -> ExportAuditSurfaceState {
+        exportAuditStoreState.surface(
+            for: feature,
+            permissionState: exportPermissionStoreState.permission(for: platform)
+        )
+    }
+
+    func setExportPermission(
+        _ permissionState: HealthExportPermissionState,
+        for platform: HealthExportPlatform
+    ) {
+        exportPermissionStoreState = exportPermissionStoreState.setPermission(permissionState, for: platform)
     }
 
     func replaceEntitlementCacheState(_ state: EntitlementCacheState) {
@@ -280,6 +294,22 @@ final class AppShellStore: ObservableObject {
         guard let latestRecord = sessionHistoryStoreState.records
             .filter({ $0.feature == feature })
             .max(by: { $0.recordedAtEpochMillis < $1.recordedAtEpochMillis }) else {
+            return nil
+        }
+
+        guard exportPermissionStoreState.permission(for: platform) == .granted else {
+            exportAuditStoreState = exportAuditStoreState.append(
+                ExportAuditRecord(
+                    auditID: "\(platform.rawValue):\(latestRecord.sessionID):\(nowEpochMillis())",
+                    feature: feature,
+                    sessionID: latestRecord.sessionID,
+                    platform: platform,
+                    status: .failed,
+                    recordedAtEpochMillis: nowEpochMillis(),
+                    exportedResultToken: latestRecord.resultToken,
+                    failureReason: "permission_denied"
+                )
+            )
             return nil
         }
 
