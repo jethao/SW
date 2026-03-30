@@ -64,6 +64,7 @@ class FeatureHubRouteState(
         private set
 
     val actionGateAnalytics = ActionGateAnalytics()
+    val pairingRecoveryAnalytics = PairingRecoveryAnalytics()
 
     val lastBlockedActionAttempt: BlockedActionAttempt?
         get() = actionLockState.blockedAttempt
@@ -115,6 +116,28 @@ class FeatureHubRouteState(
         )
     }
 
+    fun markDeviceIncompatible() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        pairingRecoveryAnalytics.record(PairingStep.INCOMPATIBLE, PairingRecoveryAction.SURFACED)
+        route = FeatureHubRoute.Setup(
+            currentRoute.pairingState.copy(
+                step = PairingStep.INCOMPATIBLE,
+                recoveryMessage = "This device is not supported in the AirHealth consumer app. Try another AirHealth device or check for an app update.",
+            ),
+        )
+    }
+
+    fun markDeviceNotReady() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        pairingRecoveryAnalytics.record(PairingStep.NOT_READY, PairingRecoveryAction.SURFACED)
+        route = FeatureHubRoute.Setup(
+            currentRoute.pairingState.copy(
+                step = PairingStep.NOT_READY,
+                recoveryMessage = "This device is not ready for setup yet. Keep it nearby, charge it if needed, and try again in a moment.",
+            ),
+        )
+    }
+
     fun confirmDeviceConnection() {
         val currentRoute = route as? FeatureHubRoute.Setup ?: return
         val device = currentRoute.pairingState.discoveredDevice ?: return
@@ -151,6 +174,7 @@ class FeatureHubRouteState(
 
     fun failClaimDevice() {
         val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        pairingRecoveryAnalytics.record(PairingStep.CLAIM_FAILED, PairingRecoveryAction.SURFACED)
         route = FeatureHubRoute.Setup(
             currentRoute.pairingState.copy(
                 step = PairingStep.CLAIM_FAILED,
@@ -162,9 +186,26 @@ class FeatureHubRouteState(
     fun retryClaimDevice() {
         val currentRoute = route as? FeatureHubRoute.Setup ?: return
         val device = currentRoute.pairingState.discoveredDevice ?: return
+        if (currentRoute.pairingState.step == PairingStep.CLAIM_FAILED) {
+            pairingRecoveryAnalytics.record(PairingStep.CLAIM_FAILED, PairingRecoveryAction.RETRY)
+        }
         route = FeatureHubRoute.Setup(
             PairingFlowState(
                 step = PairingStep.CLAIMING,
+                discoveredDevice = device,
+            ),
+        )
+    }
+
+    fun retryDeviceReadinessCheck() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        if (currentRoute.pairingState.step == PairingStep.NOT_READY) {
+            pairingRecoveryAnalytics.record(PairingStep.NOT_READY, PairingRecoveryAction.RETRY)
+        }
+        route = FeatureHubRoute.Setup(
+            PairingFlowState(
+                step = PairingStep.CONNECTING,
                 discoveredDevice = device,
             ),
         )
@@ -184,6 +225,7 @@ class FeatureHubRouteState(
     }
 
     fun markDiscoveryTimeout() {
+        pairingRecoveryAnalytics.record(PairingStep.TIMEOUT, PairingRecoveryAction.SURFACED)
         route = FeatureHubRoute.Setup(
             PairingFlowState(
                 step = PairingStep.TIMEOUT,
@@ -197,10 +239,16 @@ class FeatureHubRouteState(
     }
 
     fun restartDiscovery() {
+        currentRecoverableFailureStep()?.let { failureStep ->
+            pairingRecoveryAnalytics.record(failureStep, PairingRecoveryAction.RETRY)
+        }
         route = FeatureHubRoute.Setup(PairingFlowState.discovering())
     }
 
     fun exitSetup() {
+        currentRecoverableFailureStep()?.let { failureStep ->
+            pairingRecoveryAnalytics.record(failureStep, PairingRecoveryAction.EXIT)
+        }
         route = FeatureHubRoute.Home
     }
 
@@ -254,6 +302,17 @@ class FeatureHubRouteState(
             is FeatureHubRoute.Feature -> currentRoute.context
             is FeatureHubRoute.Action -> currentRoute.context
             FeatureHubRoute.Home -> null
+        }
+    }
+
+    private fun currentRecoverableFailureStep(): PairingStep? {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return null
+        return when (currentRoute.pairingState.step) {
+            PairingStep.CLAIM_FAILED,
+            PairingStep.INCOMPATIBLE,
+            PairingStep.NOT_READY,
+            PairingStep.TIMEOUT -> currentRoute.pairingState.step
+            else -> null
         }
     }
 }
