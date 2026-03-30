@@ -31,4 +31,24 @@ class ActionLockStateTest {
         assertEquals(ManagedAction.MEASURE, releasedState.activeAction)
         assertNull(releasedState.blockedAttempt)
     }
+
+    @Test
+    fun entitlementBlockPreservesExistingLockContext() {
+        val setupLockedState = ActionLockState().tryAcquire(
+            feature = FeatureKind.FAT_BURNING,
+            action = ManagedAction.SETUP,
+        )
+
+        val blockedState = setupLockedState.blockByEntitlement(
+            feature = FeatureKind.FAT_BURNING,
+            action = ManagedAction.MEASURE,
+            reasonCode = ActionLockReasonCode.TEMPORARY_ACCESS_RESTRICTION,
+        )
+
+        assertEquals(ManagedAction.SETUP, blockedState.activeAction)
+        assertEquals(
+            ActionLockReasonCode.TEMPORARY_ACCESS_RESTRICTION,
+            blockedState.blockedAttempt?.reasonCode,
+        )
+    }
 }

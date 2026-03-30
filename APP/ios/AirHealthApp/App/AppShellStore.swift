@@ -43,6 +43,8 @@ enum ManagedAction: String {
 
 enum ActionLockReasonCode: String {
     case conflictingActionInProgress = "conflicting_action_in_progress"
+    case temporaryAccessRestriction = "temporary_access_restriction"
+    case readOnlyModeRestriction = "read_only_mode_restriction"
 }
 
 enum ActionGateOutcome: String {
@@ -79,12 +81,19 @@ struct ActionGateEvent {
 struct BlockedActionAttempt {
     let requestedFeature: FeatureKind
     let requestedAction: ManagedAction
-    let activeFeature: FeatureKind
-    let activeAction: ManagedAction
+    let activeFeature: FeatureKind?
+    let activeAction: ManagedAction?
     let reasonCode: ActionLockReasonCode
 
     var message: String {
-        "Finish \(activeAction.title) for \(activeFeature.title) before starting \(requestedAction.title)."
+        switch reasonCode {
+        case .conflictingActionInProgress:
+            return "Finish \(activeAction?.title ?? "the current action") for \(activeFeature?.title ?? "this feature") before starting \(requestedAction.title)."
+        case .temporaryAccessRestriction:
+            return "\(requestedAction.title) is unavailable during Temporary access. Reconnect to verify entitlement before continuing."
+        case .readOnlyModeRestriction:
+            return "\(requestedAction.title) is unavailable in Read-only mode. Restore active entitlement to continue."
+        }
     }
 }
 
@@ -125,6 +134,20 @@ struct ActionLockState {
     mutating func clearBlockedAttempt() {
         blockedAttempt = nil
     }
+
+    mutating func blockByEntitlement(
+        feature: FeatureKind,
+        action: ManagedAction,
+        reasonCode: ActionLockReasonCode
+    ) {
+        blockedAttempt = BlockedActionAttempt(
+            requestedFeature: feature,
+            requestedAction: action,
+            activeFeature: activeFeature,
+            activeAction: activeAction,
+            reasonCode: reasonCode
+        )
+    }
 }
 
 enum AppRoute {
@@ -153,6 +176,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var actionLockState = ActionLockState()
     @Published private(set) var actionGateEvents: [ActionGateEvent] = []
     @Published private(set) var pairingRecoveryEvents: [PairingRecoveryEvent] = []
+    @Published private(set) var entitlementCacheState: EntitlementCacheState
 
     var lastBlockedActionAttempt: BlockedActionAttempt? {
         actionLockState.blockedAttempt
@@ -160,6 +184,30 @@ final class AppShellStore: ObservableObject {
 
     var activeManagedAction: ManagedAction? {
         actionLockState.activeAction
+    }
+
+    init(nowEpochMillis: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        self.nowEpochMillis = nowEpochMillis
+        let initialTimestamp = nowEpochMillis()
+        self.entitlementCacheState = EntitlementCacheState(
+            snapshot: CachedEntitlementSnapshot(
+                sourceState: .paidActive,
+                verifiedAtEpochMillis: initialTimestamp
+            ),
+            isBackendReachable: true,
+            lastVerificationAttemptAtEpochMillis: initialTimestamp
+        )
+    }
+
+    var effectiveEntitlement: EffectiveEntitlement {
+        EntitlementEvaluator.deriveEffectiveState(
+            state: entitlementCacheState,
+            nowEpochMillis: nowEpochMillis()
+        )
+    }
+
+    func replaceEntitlementCacheState(_ state: EntitlementCacheState) {
+        entitlementCacheState = state
     }
 
     func openFeature(_ feature: FeatureKind) {
@@ -420,6 +468,32 @@ final class AppShellStore: ObservableObject {
         }
 
         let requestedAction = ManagedAction.from(action)
+        if let reasonCode = entitlementBlockReason(
+            for: requestedAction,
+            entitlement: effectiveEntitlement
+        ) {
+            var nextLockState = actionLockState
+            nextLockState.blockByEntitlement(
+                feature: context.feature,
+                action: requestedAction,
+                reasonCode: reasonCode
+            )
+            actionLockState = nextLockState
+
+            if let blockedAttempt = nextLockState.blockedAttempt {
+                actionGateEvents.append(
+                    ActionGateEvent(
+                        feature: blockedAttempt.requestedFeature.rawValue,
+                        requestedAction: blockedAttempt.requestedAction.rawValue,
+                        outcome: ActionGateOutcome.blocked.rawValue,
+                        activeAction: blockedAttempt.activeAction?.rawValue,
+                        reasonCode: blockedAttempt.reasonCode.rawValue
+                    )
+                )
+            }
+            return
+        }
+
         var nextLockState = actionLockState
         let wasAcquired = nextLockState.tryAcquire(
             feature: context.feature,
@@ -516,6 +590,37 @@ final class AppShellStore: ObservableObject {
             return context
         case let .featureAction(context, _):
             return context
+        }
+    }
+
+    private let nowEpochMillis: () -> Int64
+
+    private func entitlementBlockReason(
+        for action: ManagedAction,
+        entitlement: EffectiveEntitlement
+    ) -> ActionLockReasonCode? {
+        switch action {
+        case .measure:
+            return entitlement.canStartNewSessions ? nil : entitlement.reasonCode
+        case .setGoals:
+            return entitlement.canEditGoals ? nil : entitlement.reasonCode
+        case .getSuggestion:
+            return entitlement.canRequestLiveSuggestions ? nil : entitlement.reasonCode
+        case .viewHistory, .consultProfessionals, .setup:
+            return nil
+        }
+    }
+}
+
+private extension EffectiveEntitlement {
+    var reasonCode: ActionLockReasonCode {
+        switch mode {
+        case .active:
+            return .conflictingActionInProgress
+        case .temporaryAccess:
+            return .temporaryAccessRestriction
+        case .readOnly:
+            return .readOnlyModeRestriction
         }
     }
 }

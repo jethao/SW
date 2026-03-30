@@ -29,17 +29,28 @@ enum class ActionLockReasonCode(
     val code: String,
 ) {
     CONFLICTING_ACTION_IN_PROGRESS("conflicting_action_in_progress"),
+    TEMPORARY_ACCESS_RESTRICTION("temporary_access_restriction"),
+    READ_ONLY_MODE_RESTRICTION("read_only_mode_restriction"),
 }
 
 data class BlockedActionAttempt(
     val requestedFeature: FeatureKind,
     val requestedAction: ManagedAction,
-    val activeFeature: FeatureKind,
-    val activeAction: ManagedAction,
+    val activeFeature: FeatureKind? = null,
+    val activeAction: ManagedAction? = null,
     val reasonCode: ActionLockReasonCode,
 ) {
     val message: String
-        get() = "Finish ${activeAction.title} for ${activeFeature.title} before starting ${requestedAction.title}."
+        get() = when (reasonCode) {
+            ActionLockReasonCode.CONFLICTING_ACTION_IN_PROGRESS ->
+                "Finish ${activeAction?.title ?: "the current action"} for ${activeFeature?.title ?: "this feature"} before starting ${requestedAction.title}."
+
+            ActionLockReasonCode.TEMPORARY_ACCESS_RESTRICTION ->
+                "${requestedAction.title} is unavailable during Temporary access. Reconnect to verify entitlement before continuing."
+
+            ActionLockReasonCode.READ_ONLY_MODE_RESTRICTION ->
+                "${requestedAction.title} is unavailable in Read-only mode. Restore active entitlement to continue."
+        }
 }
 
 data class ActionLockState(
@@ -83,5 +94,21 @@ data class ActionLockState(
 
     fun clearBlockedAttempt(): ActionLockState {
         return copy(blockedAttempt = null)
+    }
+
+    fun blockByEntitlement(
+        feature: FeatureKind,
+        action: ManagedAction,
+        reasonCode: ActionLockReasonCode,
+    ): ActionLockState {
+        return copy(
+            blockedAttempt = BlockedActionAttempt(
+                requestedFeature = feature,
+                requestedAction = action,
+                activeFeature = activeFeature,
+                activeAction = activeAction,
+                reasonCode = reasonCode,
+            ),
+        )
     }
 }
