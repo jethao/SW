@@ -90,4 +90,46 @@ class MeasurementSessionCoordinatorTest {
         assertEquals("user_backed_out", canceledState.cancellationReason)
         assertFalse(canceledState.recoveryMarker.replayRequired)
     }
+
+    @Test
+    fun terminalPhasesIgnoreLateEvents() {
+        val completedState = MeasurementSessionCoordinator.reduce(
+            MeasurementSessionCoordinator.reduce(
+                MeasurementSessionCoordinator.reduce(
+                    MeasurementSessionState.begin(
+                        sessionId = "session-fat-002",
+                        feature = FeatureKind.FAT_BURNING,
+                    ),
+                    MeasurementBleEvent.MeasurementStarted,
+                ),
+                MeasurementBleEvent.TerminalReadingAvailable(
+                    MeasurementTerminalSummary(resultToken = "terminal-token"),
+                ),
+            ),
+            MeasurementBleEvent.TerminalReadingConfirmed,
+        )
+
+        val completedAfterLateFailure = MeasurementSessionCoordinator.reduce(
+            completedState,
+            MeasurementBleEvent.MeasurementFailed(reasonCode = "late_failure"),
+        )
+        assertEquals(MeasurementSessionPhase.COMPLETE, completedAfterLateFailure.phase)
+        assertEquals("terminal_reading_confirmed", completedAfterLateFailure.lastEventCode)
+        assertEquals("terminal-token", completedAfterLateFailure.terminalSummary?.resultToken)
+
+        val failedState = MeasurementSessionCoordinator.reduce(
+            MeasurementSessionState.begin(
+                sessionId = "session-oral-003",
+                feature = FeatureKind.ORAL_HEALTH,
+            ),
+            MeasurementBleEvent.MeasurementFailed(reasonCode = "sensor_timeout"),
+        )
+        val failedAfterLateCancel = MeasurementSessionCoordinator.reduce(
+            failedState,
+            MeasurementBleEvent.SessionCanceled(reasonCode = "user_backed_out"),
+        )
+        assertEquals(MeasurementSessionPhase.FAILED, failedAfterLateCancel.phase)
+        assertEquals("sensor_timeout", failedAfterLateCancel.failureReason)
+        assertEquals("measurement_failed", failedAfterLateCancel.lastEventCode)
+    }
 }

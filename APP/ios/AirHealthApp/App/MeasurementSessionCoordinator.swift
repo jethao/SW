@@ -8,6 +8,10 @@ enum MeasurementSessionPhase: String {
     case failed = "failed"
     case canceled = "canceled"
     case complete = "complete"
+
+    var isTerminal: Bool {
+        self == .failed || self == .canceled || self == .complete
+    }
 }
 
 struct MeasurementRecoveryMarker {
@@ -91,6 +95,10 @@ enum MeasurementSessionCoordinator {
         state: MeasurementSessionState,
         event: MeasurementBleEvent
     ) -> MeasurementSessionState {
+        if state.phase.isTerminal {
+            return state
+        }
+
         switch event {
         case .warmupStarted:
             return MeasurementSessionState(

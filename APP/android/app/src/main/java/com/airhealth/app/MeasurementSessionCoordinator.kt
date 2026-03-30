@@ -10,6 +10,11 @@ enum class MeasurementSessionPhase(
     FAILED("failed"),
     CANCELED("canceled"),
     COMPLETE("complete"),
+
+    ;
+
+    val isTerminal: Boolean
+        get() = this == FAILED || this == CANCELED || this == COMPLETE
 }
 
 data class MeasurementRecoveryMarker(
@@ -105,6 +110,10 @@ object MeasurementSessionCoordinator {
         state: MeasurementSessionState,
         event: MeasurementBleEvent,
     ): MeasurementSessionState {
+        if (state.phase.isTerminal) {
+            return state
+        }
+
         return when (event) {
             MeasurementBleEvent.WarmupStarted -> state.copy(
                 phase = MeasurementSessionPhase.WARMING,
