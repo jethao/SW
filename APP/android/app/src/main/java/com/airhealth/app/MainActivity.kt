@@ -326,6 +326,12 @@ class MainActivity : AppCompatActivity() {
                 bodyCopy("Selecting one action acquires the global action lock until that flow resolves.")
             )
 
+            routeState.lastBlockedActionAttempt?.let { blockedAttempt ->
+                addView(headline("Blocked action"))
+                addView(bodyCopy(blockedAttempt.message))
+                addView(caption("Reason code: ${blockedAttempt.reasonCode.code}"))
+            }
+
             FeatureAction.entries.forEach { action ->
                 addView(
                     actionButton(action.title) {

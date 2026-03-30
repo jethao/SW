@@ -63,6 +63,10 @@ class ActionGateAnalyticsTest {
 
         assertTrue(routeState.route is FeatureHubRoute.Feature)
         assertEquals(
+            ActionLockReasonCode.TEMPORARY_ACCESS_RESTRICTION,
+            routeState.lastBlockedActionAttempt?.reasonCode,
+        )
+        assertEquals(
             linkedMapOf(
                 "feature" to "oral_health",
                 "requested_action" to "measure",
@@ -90,6 +94,10 @@ class ActionGateAnalyticsTest {
         routeState.openFeature(FeatureKind.FAT_BURNING)
         routeState.openAction(FeatureAction.SET_GOALS)
 
+        assertEquals(
+            ActionLockReasonCode.READ_ONLY_MODE_RESTRICTION,
+            routeState.lastBlockedActionAttempt?.reasonCode,
+        )
         assertEquals(
             linkedMapOf(
                 "feature" to "fat_burning",
