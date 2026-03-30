@@ -1,4 +1,4 @@
 interface:
   display_name: "APP ENG"
-  short_description: "Implement ready APP backlog tickets and hand PRs off for APP-CR review"
-  default_prompt: "Use $app-eng to gather Linear ticket, dependency, PR, comment, and local app context before making API writes, then select only unblocked ready APP tickets, implement them under SW/APP, create one linked pull request per completed ticket, and leave each PR in a clean review-ready state for APP-CR."
+  short_description: "Implement ready APP backlog tickets in parallel and hand PRs off for APP-CR review"
+  default_prompt: "Use $app-eng to gather Linear ticket, dependency, PR, comment, and local app context before making API writes, then select only unblocked ready APP tickets, implement them under SW/APP, process independent tickets in parallel when safe, create one linked pull request per completed ticket, and leave each PR in a clean review-ready state for APP-CR."
