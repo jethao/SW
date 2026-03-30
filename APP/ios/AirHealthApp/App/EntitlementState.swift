@@ -85,6 +85,18 @@ enum EntitlementCacheReducer {
     }
 }
 
+func scaffoldBootstrapEntitlementState(nowEpochMillis: Int64) -> EntitlementCacheState {
+    EntitlementCacheReducer.reduce(
+        state: .empty(),
+        action: .snapshotVerified(
+            CachedEntitlementSnapshot(
+                sourceState: .trialActive,
+                verifiedAtEpochMillis: nowEpochMillis
+            )
+        )
+    )
+}
+
 enum EntitlementEvaluator {
     static func deriveEffectiveState(
         state: EntitlementCacheState,

@@ -14,6 +14,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        routeState.replaceEntitlementCacheState(
+            scaffoldBootstrapEntitlementState(System.currentTimeMillis()),
+        )
         renderRoute()
     }
 

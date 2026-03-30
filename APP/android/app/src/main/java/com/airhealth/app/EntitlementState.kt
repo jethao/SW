@@ -83,6 +83,18 @@ object EntitlementCacheReducer {
     }
 }
 
+fun scaffoldBootstrapEntitlementState(nowEpochMillis: Long): EntitlementCacheState {
+    return EntitlementCacheReducer.reduce(
+        EntitlementCacheState(),
+        EntitlementCacheAction.SnapshotVerified(
+            CachedEntitlementSnapshot(
+                sourceState = VerifiedEntitlementState.TRIAL_ACTIVE,
+                verifiedAtEpochMillis = nowEpochMillis,
+            ),
+        ),
+    )
+}
+
 object EntitlementEvaluator {
     fun deriveEffectiveState(
         state: EntitlementCacheState,

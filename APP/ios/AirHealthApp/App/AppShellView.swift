@@ -56,7 +56,17 @@ struct SelectedFeatureContext {
 }
 
 struct AppShellView: View {
-    @StateObject private var store = AppShellStore()
+    @StateObject private var store: AppShellStore
+
+    init() {
+        let store = AppShellStore()
+        store.replaceEntitlementCacheState(
+            scaffoldBootstrapEntitlementState(
+                nowEpochMillis: Int64(Date().timeIntervalSince1970 * 1000)
+            )
+        )
+        _store = StateObject(wrappedValue: store)
+    }
 
     var body: some View {
         NavigationStack {
