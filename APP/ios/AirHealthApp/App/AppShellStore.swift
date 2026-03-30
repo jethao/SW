@@ -188,15 +188,7 @@ final class AppShellStore: ObservableObject {
 
     init(nowEpochMillis: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
         self.nowEpochMillis = nowEpochMillis
-        let initialTimestamp = nowEpochMillis()
-        self.entitlementCacheState = EntitlementCacheState(
-            snapshot: CachedEntitlementSnapshot(
-                sourceState: .paidActive,
-                verifiedAtEpochMillis: initialTimestamp
-            ),
-            isBackendReachable: true,
-            lastVerificationAttemptAtEpochMillis: initialTimestamp
-        )
+        self.entitlementCacheState = .empty()
     }
 
     var effectiveEntitlement: EffectiveEntitlement {

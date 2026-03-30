@@ -58,7 +58,7 @@ class FeatureHubRouteState(
     initialRoute: FeatureHubRoute = FeatureHubRoute.Home,
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
 ) {
-    private var entitlementCacheState: EntitlementCacheState = defaultEntitlementCacheState(currentTimeMillis())
+    private var entitlementCacheState: EntitlementCacheState = EntitlementCacheState()
 
     var route: FeatureHubRoute = initialRoute
         private set
@@ -374,14 +374,4 @@ class FeatureHubRouteState(
         }
     }
 
-    private fun defaultEntitlementCacheState(nowEpochMillis: Long): EntitlementCacheState {
-        return EntitlementCacheState(
-            snapshot = CachedEntitlementSnapshot(
-                sourceState = VerifiedEntitlementState.PAID_ACTIVE,
-                verifiedAtEpochMillis = nowEpochMillis,
-            ),
-            isBackendReachable = true,
-            lastVerificationAttemptAtEpochMillis = nowEpochMillis,
-        )
-    }
 }

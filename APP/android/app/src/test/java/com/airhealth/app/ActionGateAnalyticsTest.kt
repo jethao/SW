@@ -8,6 +8,7 @@ class ActionGateAnalyticsTest {
     @Test
     fun allowedTransitionEmitsNormalizedPayload() {
         val routeState = FeatureHubRouteState()
+        routeState.replaceEntitlementCacheState(activeEntitlementState())
 
         routeState.openFeature(FeatureKind.ORAL_HEALTH)
         routeState.openAction(FeatureAction.MEASURE)
@@ -25,6 +26,7 @@ class ActionGateAnalyticsTest {
     @Test
     fun blockedTransitionEmitsReasonCodeWithoutInternalFields() {
         val routeState = FeatureHubRouteState()
+        routeState.replaceEntitlementCacheState(activeEntitlementState())
 
         routeState.openFeature(FeatureKind.FAT_BURNING)
         routeState.openAction(FeatureAction.MEASURE)
@@ -108,6 +110,17 @@ class ActionGateAnalyticsTest {
                 "outcome" to "allowed",
             ),
             routeState.actionGateAnalytics.events.last().payload(),
+        )
+    }
+
+    private fun activeEntitlementState(): EntitlementCacheState {
+        return EntitlementCacheState(
+            snapshot = CachedEntitlementSnapshot(
+                sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                verifiedAtEpochMillis = 1_000L,
+            ),
+            isBackendReachable = true,
+            lastVerificationAttemptAtEpochMillis = 1_000L,
         )
     }
 }
