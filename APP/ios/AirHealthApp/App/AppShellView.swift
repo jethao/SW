@@ -202,6 +202,37 @@ struct AppShellView: View {
                         store.returnHome()
                     }
                 )
+            } else if action == .viewHistory {
+                FeatureHistoryView(
+                    context: context,
+                    entitlement: store.effectiveEntitlement,
+                    oralSurface: store.sessionHistoryStoreState.oralHistorySurface(),
+                    fatSurface: store.sessionHistoryStoreState.fatHistorySurface(),
+                    syncProjection: store.syncQueueProjection(for: context.feature),
+                    activeSyncJob: store.activeSyncJob(for: context.feature),
+                    onRecordCompletedSummary: {
+                        store.recordDemoCompletedSession(for: context.feature)
+                    },
+                    onStartNextSyncAttempt: {
+                        _ = store.beginNextSyncAttempt()
+                    },
+                    onMarkSyncSuccess: {
+                        if let activeJob = store.activeSyncJob(for: context.feature) {
+                            store.markSyncAttemptSucceeded(sessionID: activeJob.sessionID)
+                        }
+                    },
+                    onMarkSyncFailure: {
+                        if let activeJob = store.activeSyncJob(for: context.feature) {
+                            store.markSyncAttemptFailed(sessionID: activeJob.sessionID, reasonCode: "offline_retry_required")
+                        }
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
             } else {
                 FeatureActionDestinationView(
                     context: context,
@@ -492,6 +523,136 @@ private struct PairingSetupView: View {
                 }
                 .buttonStyle(.bordered)
             }
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct FeatureHistoryView: View {
+    let context: SelectedFeatureContext
+    let entitlement: EffectiveEntitlement
+    let oralSurface: OralHistorySurfaceState
+    let fatSurface: FatHistorySurfaceState
+    let syncProjection: FeatureSyncQueueProjection
+    let activeSyncJob: PersistedSessionSyncJob?
+    let onRecordCompletedSummary: () -> Void
+    let onStartNextSyncAttempt: () -> Void
+    let onMarkSyncSuccess: () -> Void
+    let onMarkSyncFailure: () -> Void
+    let onReturnToFeature: () -> Void
+    let onReturnHome: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("History and progress")
+                .font(.title3.bold())
+
+            Text("Render consumer-safe history from persisted completed summaries, keep pending versus synced state explicit, and show feature-specific progress context.")
+                .foregroundStyle(.secondary)
+
+            Text("Selected feature: \(context.feature.title)")
+            Text("Return route ID: \(context.lastVisitedRouteID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            if let banner = entitlementBannerState(entitlement) {
+                EntitlementBannerView(banner: banner)
+            }
+
+            if context.feature == .oralHealth {
+                Text(oralSurface.baselineProgressLabel)
+                    .font(.headline)
+                Text(oralSurface.progressDetail)
+                    .foregroundStyle(.secondary)
+                if let latestStatusLabel = oralSurface.latestStatusLabel {
+                    Text("Latest sync state: \(latestStatusLabel)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(oralSurface.items, id: \.sessionID) { item in
+                    Text(item.title)
+                        .font(.subheadline.weight(.semibold))
+                    Text("\(item.progressLabel) • \(item.syncLabel)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(item.detail)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text(fatSurface.latestFinalDeltaLabel ?? "No fat-burning sessions yet")
+                    .font(.headline)
+                if let bestDeltaLabel = fatSurface.bestDeltaLabel {
+                    Text(bestDeltaLabel)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Text("\(fatSurface.pendingCount) pending • \(fatSurface.syncedCount) synced")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                ForEach(fatSurface.items, id: \.sessionID) { item in
+                    Text(item.title)
+                        .font(.subheadline.weight(.semibold))
+                    Text("\(item.finalDeltaLabel) • \(item.bestDeltaLabel) • \(item.syncLabel)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(item.detail)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text("Sync queue")
+                .font(.headline)
+            Text("\(syncProjection.pendingCount) pending • \(syncProjection.retryScheduledCount) retry • \(syncProjection.inFlightCount) in flight • \(syncProjection.poisonedCount) poisoned • \(syncProjection.syncedCount) synced")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if let nextJob = syncProjection.nextEligibleJob {
+                Text("Next eligible sync: \(nextJob.sessionID)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+            if let activeSyncJob {
+                Text("Current sync attempt: \(activeSyncJob.sessionID)")
+                    .foregroundStyle(.secondary)
+                Text("Idempotency key: \(activeSyncJob.idempotencyKey)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Record Completed Summary") {
+                onRecordCompletedSummary()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Start Next Sync Attempt") {
+                onStartNextSyncAttempt()
+            }
+            .buttonStyle(.bordered)
+            .disabled(syncProjection.nextEligibleJob == nil)
+            .opacity(syncProjection.nextEligibleJob == nil ? 0.58 : 1)
+
+            if activeSyncJob != nil {
+                Button("Mark Sync Success") {
+                    onMarkSyncSuccess()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Simulate Sync Failure") {
+                    onMarkSyncFailure()
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Button("Return To \(context.feature.title)") {
+                onReturnToFeature()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Return To Home") {
+                onReturnHome()
+            }
+            .buttonStyle(.bordered)
 
             Spacer()
         }
