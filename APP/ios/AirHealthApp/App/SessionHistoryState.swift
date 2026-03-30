@@ -93,6 +93,10 @@ struct SessionHistoryStoreState {
         self.records = records.sorted { $0.recordedAtEpochMillis > $1.recordedAtEpochMillis }
     }
 
+    func record(for sessionID: String) -> PersistedSessionSummaryRecord? {
+        records.first { $0.sessionID == sessionID }
+    }
+
     func upsert(_ record: PersistedSessionSummaryRecord) -> SessionHistoryStoreState {
         let remaining = records.filter { $0.sessionID != record.sessionID }
         return SessionHistoryStoreState(records: remaining + [record])

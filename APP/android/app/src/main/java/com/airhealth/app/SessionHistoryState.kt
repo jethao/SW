@@ -93,6 +93,10 @@ data class FeatureHistoryProjection(
 data class SessionHistoryStoreState(
     val records: List<PersistedSessionSummaryRecord> = emptyList(),
 ) {
+    fun recordFor(sessionId: String): PersistedSessionSummaryRecord? {
+        return records.firstOrNull { it.sessionId == sessionId }
+    }
+
     fun upsert(record: PersistedSessionSummaryRecord): SessionHistoryStoreState {
         val remaining = records.filterNot { it.sessionId == record.sessionId }
         return copy(records = (remaining + record).sortedByDescending { it.recordedAtEpochMillis })

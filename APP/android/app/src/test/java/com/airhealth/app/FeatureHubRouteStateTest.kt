@@ -2,6 +2,7 @@ package com.airhealth.app
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -163,5 +164,32 @@ class FeatureHubRouteStateTest {
 
         val route = routeState.route as FeatureHubRoute.Action
         assertEquals(FeatureAction.CONSULT_PROFESSIONALS, route.action)
+    }
+
+    @Test
+    fun completedSummaryCanMoveFromPendingToSyncedThroughQueueActions() {
+        val routeState = activeRouteState()
+
+        routeState.recordDemoCompletedSession(FeatureKind.ORAL_HEALTH)
+
+        val pendingHistory = routeState.historyProjectionFor(FeatureKind.ORAL_HEALTH)
+        val pendingQueue = routeState.syncQueueProjectionFor(FeatureKind.ORAL_HEALTH)
+        assertEquals(1, pendingHistory.pendingCount)
+        assertEquals(1, pendingQueue.pendingCount)
+
+        val activeJob = routeState.beginNextSyncAttempt()
+        assertNotNull(activeJob)
+        assertEquals(
+            1,
+            routeState.syncQueueProjectionFor(FeatureKind.ORAL_HEALTH).inFlightCount,
+        )
+
+        routeState.markSyncAttemptSucceeded(activeJob!!.sessionId)
+
+        val syncedHistory = routeState.historyProjectionFor(FeatureKind.ORAL_HEALTH)
+        val syncedQueue = routeState.syncQueueProjectionFor(FeatureKind.ORAL_HEALTH)
+        assertEquals(0, syncedHistory.pendingCount)
+        assertEquals(1, syncedHistory.syncedCount)
+        assertEquals(1, syncedQueue.syncedCount)
     }
 }

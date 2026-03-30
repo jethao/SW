@@ -59,9 +59,14 @@ class FeatureHubRouteState(
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
 ) {
     private var entitlementCacheState: EntitlementCacheState = EntitlementCacheState()
+    private var sampleSessionOrdinal: Long = 0L
     var goalCacheState: GoalCacheState = GoalCacheState()
         private set
     var suggestionCacheState: SuggestionCacheState = SuggestionCacheState()
+        private set
+    var sessionHistoryStoreState: SessionHistoryStoreState = SessionHistoryStoreState()
+        private set
+    var sessionSyncQueueState: SessionSyncQueueState = SessionSyncQueueState()
         private set
 
     var route: FeatureHubRoute = initialRoute
@@ -88,6 +93,18 @@ class FeatureHubRouteState(
 
     fun suggestionFor(feature: FeatureKind): FeatureSuggestion? {
         return suggestionCacheState.suggestionFor(feature)
+    }
+
+    fun historyProjectionFor(feature: FeatureKind): FeatureHistoryProjection {
+        return sessionHistoryStoreState.projectionFor(feature)
+    }
+
+    fun syncQueueProjectionFor(feature: FeatureKind): FeatureSyncQueueProjection {
+        return sessionSyncQueueState.projectionFor(feature, currentTimeMillis())
+    }
+
+    fun activeSyncJobFor(feature: FeatureKind): PersistedSessionSyncJob? {
+        return sessionSyncQueueState.activeJobFor(feature)
     }
 
     fun applyGoalTemplate(template: GoalDraftTemplate) {
@@ -367,6 +384,49 @@ class FeatureHubRouteState(
         entitlementCacheState = state
     }
 
+    fun recordDemoCompletedSession(feature: FeatureKind) {
+        sampleSessionOrdinal += 1
+        val session = synthesizeCompletedSession(
+            feature = feature,
+            ordinal = sampleSessionOrdinal,
+        )
+        val reconciliation = SessionSyncReconciler.recordCompletedSession(
+            historyStoreState = sessionHistoryStoreState,
+            syncQueueState = sessionSyncQueueState,
+            session = session,
+            recordedAtEpochMillis = currentTimeMillis(),
+        )
+        sessionHistoryStoreState = reconciliation.historyStoreState
+        sessionSyncQueueState = reconciliation.syncQueueState
+    }
+
+    fun beginNextSyncAttempt(): PersistedSessionSyncJob? {
+        val dispatch = sessionSyncQueueState.beginNextEligibleAttempt(currentTimeMillis())
+        sessionSyncQueueState = dispatch.queueState
+        return dispatch.dispatchedJob
+    }
+
+    fun markSyncAttemptSucceeded(sessionId: String) {
+        val reconciliation = SessionSyncReconciler.markSessionSynced(
+            historyStoreState = sessionHistoryStoreState,
+            syncQueueState = sessionSyncQueueState,
+            sessionId = sessionId,
+        )
+        sessionHistoryStoreState = reconciliation.historyStoreState
+        sessionSyncQueueState = reconciliation.syncQueueState
+    }
+
+    fun markSyncAttemptFailed(
+        sessionId: String,
+        reasonCode: String,
+    ) {
+        sessionSyncQueueState = sessionSyncQueueState.markAttemptFailed(
+            sessionId = sessionId,
+            nowEpochMillis = currentTimeMillis(),
+            reasonCode = reasonCode,
+        )
+    }
+
     private fun currentFeatureContext(): SelectedFeatureContext? {
         return when (val currentRoute = route) {
             is FeatureHubRoute.Setup -> null
@@ -415,4 +475,26 @@ class FeatureHubRouteState(
         }
     }
 
+    private fun synthesizeCompletedSession(
+        feature: FeatureKind,
+        ordinal: Long,
+    ): MeasurementSessionState {
+        val sessionId = "${feature.routeId}-session-$ordinal"
+        val resultToken = "${feature.routeId.take(4)}-result-$ordinal"
+        return MeasurementSessionCoordinator.reduce(
+            MeasurementSessionCoordinator.reduce(
+                MeasurementSessionCoordinator.reduce(
+                    MeasurementSessionState.begin(
+                        sessionId = sessionId,
+                        feature = feature,
+                    ),
+                    MeasurementBleEvent.MeasurementStarted,
+                ),
+                MeasurementBleEvent.TerminalReadingAvailable(
+                    MeasurementTerminalSummary(resultToken = resultToken),
+                ),
+            ),
+            MeasurementBleEvent.TerminalReadingConfirmed,
+        )
+    }
 }
