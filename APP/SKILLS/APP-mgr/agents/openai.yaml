@@ -1,4 +1,4 @@
 interface:
   display_name: "APP MGR"
-  short_description: "Advance APP backlog work while stopping on open PRs and review loops"
-  default_prompt: "Use $app-mgr to first gather APP backlog state, parent-ticket completion state, active PR state, dependency context, and review history before making API writes, then reconcile backlog parents, invoke APP-ENG for unblocked APP work only when no app PR is open, wait for Codex review to complete, loop APP-ENG until all PR comments are addressed, and refresh SW/APP/manager.rpt."
+  short_description: "Advance APP backlog work with APP-ENG and APP-CR review loops"
+  default_prompt: "Use $app-mgr to first gather APP backlog state, parent-ticket completion state, active PR state, dependency context, and review history before making API writes, then reconcile backlog parents, invoke APP-ENG for unblocked APP work only when no app PR is open, invoke APP-CR to review open app PRs, alternate APP-ENG and APP-CR until review comments are addressed, and refresh SW/APP/manager.rpt."
