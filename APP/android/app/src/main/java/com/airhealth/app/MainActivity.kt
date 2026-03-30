@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildHomeView(): View {
         title = "AirHealth"
+        val entitlement = routeState.effectiveEntitlement
 
         return verticalLayout().apply {
             addView(
@@ -49,6 +50,9 @@ class MainActivity : AppCompatActivity() {
                     "Start from the home feature hub, keep the selected feature context, and route to the next action from there."
                 )
             )
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
             addView(
                 actionButton("Add Device") {
                     routeState.openSetup()
@@ -311,6 +315,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildFeatureView(context: SelectedFeatureContext): View {
         title = context.feature.title
+        val entitlement = routeState.effectiveEntitlement
 
         return verticalLayout().apply {
             addView(headline("Selected feature context"))
@@ -325,6 +330,9 @@ class MainActivity : AppCompatActivity() {
             addView(
                 bodyCopy("Selecting one action acquires the global action lock until that flow resolves.")
             )
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
 
             routeState.lastBlockedActionAttempt?.let { blockedAttempt ->
                 addView(headline("Blocked action"))
@@ -333,12 +341,19 @@ class MainActivity : AppCompatActivity() {
             }
 
             FeatureAction.entries.forEach { action ->
+                val actionSurface = featureActionSurfaceState(action, entitlement)
                 addView(
-                    actionButton(action.title) {
+                    actionButton(
+                        action.title,
+                        enabled = actionSurface.isEnabled,
+                    ) {
                         routeState.openAction(action)
                         renderRoute()
                     }
                 )
+                actionSurface.detail?.let { detail ->
+                    addView(caption(detail))
+                }
             }
 
             addView(
@@ -355,6 +370,7 @@ class MainActivity : AppCompatActivity() {
         action: FeatureAction,
     ): View {
         title = action.title
+        val entitlement = routeState.effectiveEntitlement
 
         return verticalLayout().apply {
             addView(headline(action.title))
@@ -370,6 +386,9 @@ class MainActivity : AppCompatActivity() {
             )
             addView(bodyCopy("Selected feature: ${context.feature.title}"))
             addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
 
             routeState.lastBlockedActionAttempt?.let { blockedAttempt ->
                 addView(
@@ -384,12 +403,19 @@ class MainActivity : AppCompatActivity() {
                 if (candidate == action) {
                     addView(caption("Current flow: ${candidate.title}"))
                 } else {
+                    val actionSurface = featureActionSurfaceState(candidate, entitlement)
                     addView(
-                        secondaryButton("Try ${candidate.title}") {
+                        secondaryButton(
+                            "Try ${candidate.title}",
+                            enabled = actionSurface.isEnabled,
+                        ) {
                             routeState.openAction(candidate)
                             renderRoute()
                         }
                     )
+                    actionSurface.detail?.let { detail ->
+                        addView(caption(detail))
+                    }
                 }
             }
 
@@ -413,6 +439,11 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 48, 48, 48)
         }
+    }
+
+    private fun LinearLayout.addEntitlementBanner(banner: EntitlementBannerState) {
+        addView(headline(banner.title))
+        addView(bodyCopy(banner.message))
     }
 
     private fun headline(text: String): TextView {
@@ -441,22 +472,27 @@ class MainActivity : AppCompatActivity() {
 
     private fun actionButton(
         text: String,
+        enabled: Boolean = true,
         onClick: () -> Unit,
     ): Button {
         return Button(this).apply {
             this.text = text
             gravity = Gravity.CENTER
+            isEnabled = enabled
+            alpha = if (enabled) 1f else 0.58f
             setOnClickListener { onClick() }
         }
     }
 
     private fun secondaryButton(
         text: String,
+        enabled: Boolean = true,
         onClick: () -> Unit,
     ): Button {
         return Button(this).apply {
             this.text = text
-            alpha = 0.88f
+            isEnabled = enabled
+            alpha = if (enabled) 0.88f else 0.52f
             setOnClickListener { onClick() }
         }
     }
