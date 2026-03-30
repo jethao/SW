@@ -5,7 +5,7 @@ description: Execute AirHealth mobile app work from Linear by reading backlog is
 
 # App Engineer
 
-Use this skill when Codex should implement ready mobile app tickets from Linear for AirHealth.
+Use this skill when Codex should implement one or more ready mobile app tickets from Linear for AirHealth.
 
 The job of this skill is to pick only mobile tickets that are truly ready, implement them in the app tree, and land each completed ticket as its own pull request linked back to the original Linear issue.
 
@@ -14,8 +14,10 @@ The job of this skill is to pick only mobile tickets that are truly ready, imple
 - All mobile app code must live under `SW/APP`.
 - Before making any Linear or GitHub API write call, gather as much relevant context as possible first: ticket details, parent and child relationships, blockers, open PR state, review comments, and the relevant local app code and tests.
 - Do not start a ticket that has any unresolved blocker.
+- APP-ENG may work on multiple tickets in the same invocation when each ticket is independently ready and unblocked.
 - Do not bundle multiple Linear tickets into one implementation PR.
 - Create exactly one PR per implemented ticket.
+- Keep each ticket isolated in its own branch, commit set, PR, and final summary entry.
 - Create each ticket branch from the latest `main` branch baseline.
 - Link each PR to the original Linear ticket.
 - If tests for the implemented feature do not already exist, add them as part of the same ticket when the feature is testable.
@@ -94,7 +96,8 @@ Follow this sequence.
 - Inspect existing open app PRs, linked ticket state, and any outstanding PR comments before deciding whether to start or update work.
 - Filter to tickets with no unresolved blockers.
 - Prefer tickets that are already implementation-sized.
-- If multiple tickets are ready, process them one at a time.
+- If multiple tickets are ready, APP-ENG may process more than one in the same invocation.
+- Default to sequential processing. Only work on multiple tickets in parallel when their write scopes are clearly disjoint and each ticket still gets its own branch and PR.
 
 ### 2. Confirm The Implementation Boundary
 
@@ -109,14 +112,22 @@ Before editing code:
 
 If a ticket is too large, do not silently implement part of it. Stop and report that the ticket should be split.
 
-### 3. Implement Only The Ready Ticket
+### 3. Implement Only Ready Tickets
 
-- make the smallest complete change that satisfies the ticket
-- keep edits focused on one ticket only
+For each ready ticket you decide to process:
+
+- make the smallest complete change that satisfies that ticket
+- keep edits focused on that ticket only
 - check whether tests already exist for the implemented feature
 - add tests when they do not exist yet and the feature is testable
 - update existing tests when the feature or behavior changes
 - keep code, tests, and build glue inside `SW/APP`
+
+Before starting the next ticket in the same invocation:
+
+- finish the current ticket's verification, branch, commit, PR, and Codex review request
+- return the worktree to a clean baseline for the next ticket
+- do not carry unfinished mixed changes from one ticket into another
 
 ### 4. Verify
 
@@ -190,7 +201,9 @@ When more than one ticket is ready, prefer this order:
 4. foundational ticket that unblocks other ready backlog work
 5. oldest ready ticket when the above are equal
 
-Avoid starting multiple tickets in parallel in the same codebase slice unless the user explicitly asks for that.
+It is fine to process multiple ready tickets in one run as long as each ticket remains isolated and unblocked.
+By default, do that sequentially, one ticket after another.
+Do not start multiple tickets in parallel in the same codebase slice unless the user explicitly asks for parallel work.
 
 ## Stop Conditions
 
@@ -202,6 +215,7 @@ Do not implement and do not create a PR when:
 - the implementation would need code outside `SW/APP` and the user has not approved that exception
 
 In these cases, give a short explanation of why the ticket is not ready and identify the blocker.
+If one ticket is blocked, skip it and continue to any other ready unblocked ticket instead of ending the whole run unnecessarily.
 
 ## Final Output
 
