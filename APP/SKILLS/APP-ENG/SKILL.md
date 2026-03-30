@@ -1,6 +1,6 @@
 ---
 name: app-eng
-description: Execute AirHealth mobile app work from Linear by reading backlog issues in the `APP` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all app code in `SW/APP`, adding tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, creating each ticket branch from `main`, and handing each PR off cleanly for `APP-CR` review. Use when Codex needs to act as the mobile implementation engineer with autonomy to process multiple ready, unblocked tickets without waiting for a manager between tickets.
+description: Execute AirHealth mobile app work from Linear by reading backlog issues in the `APP` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all app code in `SW/APP`, adding tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, creating each ticket branch from `main`, and handing each PR off cleanly for `APP-CR` review. Use when Codex needs to act as the mobile implementation engineer with autonomy to process multiple ready, unblocked tickets in parallel without waiting for a manager between tickets.
 ---
 
 # App Engineer
@@ -15,6 +15,7 @@ The job of this skill is to pick only mobile tickets that are truly ready, imple
 - Before making any Linear or GitHub API write call, gather as much relevant context as possible first: ticket details, parent and child relationships, blockers, open PR state, review comments, and the relevant local app code and tests.
 - Do not start a ticket that has any unresolved blocker.
 - APP-ENG has autonomy to work through multiple tickets in the same invocation when each ticket is independently ready and unblocked.
+- APP-ENG may work on multiple no-blocker tickets in parallel when their write scopes, branches, commits, PRs, and review handoff states remain isolated.
 - Do not bundle multiple Linear tickets into one implementation PR.
 - Create exactly one PR per implemented ticket.
 - Keep each ticket isolated in its own branch, commit set, PR, and final summary entry.
@@ -97,7 +98,8 @@ Follow this sequence.
 - Filter to tickets with no unresolved blockers.
 - Prefer tickets that are already implementation-sized.
 - If multiple tickets are ready, APP-ENG should autonomously continue through all of the currently ready unblocked tickets it can safely complete in the same invocation.
-- Default to sequential processing. Only work on multiple tickets in parallel when their write scopes are clearly disjoint and each ticket still gets its own branch and PR.
+- Default to parallel progress across ready tickets when their write scopes are clearly disjoint and each ticket still gets its own branch, commit set, PR, and review handoff.
+- Fall back to sequential processing only when tickets touch the same codebase slice, would create merge risk, or depend on shared in-flight edits.
 - Do not wait for a manager confirmation between ready tickets unless a new blocker, ambiguous scope boundary, or tooling risk appears.
 
 ### 2. Confirm The Implementation Boundary
@@ -130,6 +132,13 @@ Before starting the next ticket in the same invocation:
 - return the worktree to a clean baseline for the next ticket
 - do not carry unfinished mixed changes from one ticket into another
 - continue directly into the next ready unblocked ticket if one is available
+
+When running multiple tickets in parallel:
+
+- assign each ticket its own isolated worktree or equivalently isolated branch workspace
+- keep file ownership disjoint whenever possible
+- do not let one ticket's temporary changes leak into another ticket's branch or PR
+- complete verification and PR handoff per ticket independently
 
 ### 4. Verify
 
@@ -204,8 +213,8 @@ When more than one ticket is ready, prefer this order:
 5. oldest ready ticket when the above are equal
 
 It is fine to process multiple ready tickets in one run as long as each ticket remains isolated and unblocked.
-By default, do that sequentially, one ticket after another.
-Do not start multiple tickets in parallel in the same codebase slice unless the user explicitly asks for parallel work.
+By default, do that in parallel when the tickets have no blockers and their write scopes are clearly separable.
+Fall back to sequential work when tickets share the same codebase slice, create merge risk, or otherwise cannot be isolated safely.
 
 ## Stop Conditions
 
