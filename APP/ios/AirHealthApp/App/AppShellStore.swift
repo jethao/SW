@@ -500,7 +500,7 @@ final class AppShellStore: ObservableObject {
                         feature: blockedAttempt.requestedFeature.rawValue,
                         requestedAction: blockedAttempt.requestedAction.rawValue,
                         outcome: ActionGateOutcome.blocked.rawValue,
-                        activeAction: blockedAttempt.activeAction.rawValue,
+                        activeAction: blockedAttempt.activeAction?.rawValue,
                         reasonCode: blockedAttempt.reasonCode.rawValue
                     )
                 )

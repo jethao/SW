@@ -49,7 +49,7 @@ class ActionGateAnalytics {
             feature = blockedAttempt.requestedFeature.routeId,
             requestedAction = blockedAttempt.requestedAction.routeId,
             outcome = ActionGateOutcome.BLOCKED.code,
-            activeAction = blockedAttempt.activeAction.routeId,
+            activeAction = blockedAttempt.activeAction?.routeId,
             reasonCode = blockedAttempt.reasonCode.code,
         )
     }
