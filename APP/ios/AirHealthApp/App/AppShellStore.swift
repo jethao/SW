@@ -152,6 +152,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var route: AppRoute = .home
     @Published private(set) var actionLockState = ActionLockState()
     @Published private(set) var actionGateEvents: [ActionGateEvent] = []
+    @Published private(set) var pairingRecoveryEvents: [PairingRecoveryEvent] = []
 
     var lastBlockedActionAttempt: BlockedActionAttempt? {
         actionLockState.blockedAttempt
@@ -222,6 +223,40 @@ final class AppShellStore: ObservableObject {
         )
     }
 
+    func markDeviceIncompatible() {
+        guard case let .setup(pairingState) = route else {
+            return
+        }
+
+        recordPairingRecovery(step: .incompatible, action: .surfaced)
+        route = .setup(
+            PairingFlowState(
+                step: .incompatible,
+                discoveredDevice: pairingState.discoveredDevice,
+                recoveryMessage: "This device is not supported in the AirHealth consumer app. Try another AirHealth device or check for an app update.",
+                claimOwnerLabel: pairingState.claimOwnerLabel,
+                selectedMode: pairingState.selectedMode
+            )
+        )
+    }
+
+    func markDeviceNotReady() {
+        guard case let .setup(pairingState) = route else {
+            return
+        }
+
+        recordPairingRecovery(step: .notReady, action: .surfaced)
+        route = .setup(
+            PairingFlowState(
+                step: .notReady,
+                discoveredDevice: pairingState.discoveredDevice,
+                recoveryMessage: "This device is not ready for setup yet. Keep it nearby, charge it if needed, and try again in a moment.",
+                claimOwnerLabel: pairingState.claimOwnerLabel,
+                selectedMode: pairingState.selectedMode
+            )
+        )
+    }
+
     func confirmDeviceConnection() {
         guard case let .setup(pairingState) = route,
               let device = pairingState.discoveredDevice else {
@@ -278,6 +313,7 @@ final class AppShellStore: ObservableObject {
             return
         }
 
+        recordPairingRecovery(step: .claimFailed, action: .surfaced)
         route = .setup(
             PairingFlowState(
                 step: .claimFailed,
@@ -295,9 +331,33 @@ final class AppShellStore: ObservableObject {
             return
         }
 
+        if pairingState.step == .claimFailed {
+            recordPairingRecovery(step: .claimFailed, action: .retry)
+        }
         route = .setup(
             PairingFlowState(
                 step: .claiming,
+                discoveredDevice: device,
+                recoveryMessage: nil,
+                claimOwnerLabel: nil,
+                selectedMode: nil
+            )
+        )
+    }
+
+    func retryDeviceReadinessCheck() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        if pairingState.step == .notReady {
+            recordPairingRecovery(step: .notReady, action: .retry)
+        }
+
+        route = .setup(
+            PairingFlowState(
+                step: .connecting,
                 discoveredDevice: device,
                 recoveryMessage: nil,
                 claimOwnerLabel: nil,
@@ -324,6 +384,7 @@ final class AppShellStore: ObservableObject {
     }
 
     func markDiscoveryTimeout() {
+        recordPairingRecovery(step: .timeout, action: .surfaced)
         route = .setup(
             PairingFlowState(
                 step: .timeout,
@@ -340,10 +401,16 @@ final class AppShellStore: ObservableObject {
     }
 
     func restartDiscovery() {
+        if let failureStep = currentRecoverableFailureStep {
+            recordPairingRecovery(step: failureStep, action: .retry)
+        }
         route = .setup(.discovering())
     }
 
     func exitSetup() {
+        if let failureStep = currentRecoverableFailureStep {
+            recordPairingRecovery(step: failureStep, action: .exit)
+        }
         route = .home
     }
 
@@ -415,6 +482,28 @@ final class AppShellStore: ObservableObject {
         actionLockState = nextLockState
 
         route = .home
+    }
+
+    private var currentRecoverableFailureStep: PairingStep? {
+        guard case let .setup(pairingState) = route else {
+            return nil
+        }
+
+        switch pairingState.step {
+        case .claimFailed, .incompatible, .notReady, .timeout:
+            return pairingState.step
+        default:
+            return nil
+        }
+    }
+
+    private func recordPairingRecovery(step: PairingStep, action: PairingRecoveryAction) {
+        pairingRecoveryEvents.append(
+            PairingRecoveryEvent(
+                failureStep: step.rawValue,
+                recoveryAction: action.rawValue
+            )
+        )
     }
 
     private func currentFeatureContext() -> SelectedFeatureContext? {

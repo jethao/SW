@@ -8,6 +8,8 @@ enum class PairingStep(
     DISCOVERING("discovering"),
     DEVICE_DISCOVERED("device_discovered"),
     CONNECTING("connecting"),
+    INCOMPATIBLE("incompatible"),
+    NOT_READY("not_ready"),
     CONNECTED("connected"),
     CLAIMING("claiming"),
     CLAIM_FAILED("claim_failed"),

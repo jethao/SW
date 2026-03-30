@@ -73,4 +73,38 @@ class PairingFlowStateTest {
         assertEquals(SetupMode.FAT_BURNING, route.pairingState.selectedMode)
         assertEquals("Primary AirHealth account", route.pairingState.claimOwnerLabel)
     }
+
+    @Test
+    fun incompatibleAndNotReadyBranchesRecoverWithoutBrokenState() {
+        val routeState = FeatureHubRouteState()
+
+        routeState.openSetup()
+        routeState.grantBluetoothPermission()
+        routeState.discoverDevice()
+        routeState.connectDiscoveredDevice()
+        routeState.markDeviceIncompatible()
+
+        var route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.INCOMPATIBLE, route.pairingState.step)
+        assertTrue(route.pairingState.recoveryMessage?.contains("not supported") == true)
+
+        routeState.restartDiscovery()
+        route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.DISCOVERING, route.pairingState.step)
+
+        routeState.discoverDevice()
+        routeState.connectDiscoveredDevice()
+        routeState.markDeviceNotReady()
+
+        route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.NOT_READY, route.pairingState.step)
+        assertTrue(route.pairingState.recoveryMessage?.contains("not ready") == true)
+
+        routeState.retryDeviceReadinessCheck()
+        route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.CONNECTING, route.pairingState.step)
+
+        routeState.exitSetup()
+        assertEquals(FeatureHubRoute.Home, routeState.route)
+    }
 }

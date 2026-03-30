@@ -162,6 +162,50 @@ class MainActivity : AppCompatActivity() {
                             renderRoute()
                         }
                     )
+                    addView(
+                        secondaryButton("Device Not Ready") {
+                            routeState.markDeviceNotReady()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Unsupported Device") {
+                            routeState.markDeviceIncompatible()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.INCOMPATIBLE -> {
+                    addView(bodyCopy(pairingState.recoveryMessage ?: "This device is not supported."))
+                    addView(
+                        actionButton("Scan For Another Device") {
+                            routeState.restartDiscovery()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Back To Home") {
+                            routeState.exitSetup()
+                            renderRoute()
+                        }
+                    )
+                }
+
+                PairingStep.NOT_READY -> {
+                    addView(bodyCopy(pairingState.recoveryMessage ?: "This device is not ready for setup."))
+                    addView(
+                        actionButton("Retry Check") {
+                            routeState.retryDeviceReadinessCheck()
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Back To Home") {
+                            routeState.exitSetup()
+                            renderRoute()
+                        }
+                    )
                 }
 
                 PairingStep.CONNECTED -> {

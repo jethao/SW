@@ -95,6 +95,12 @@ struct AppShellView: View {
                 onConnectDevice: {
                     store.connectDiscoveredDevice()
                 },
+                onShowIncompatible: {
+                    store.markDeviceIncompatible()
+                },
+                onShowNotReady: {
+                    store.markDeviceNotReady()
+                },
                 onStartClaim: {
                     store.startClaimDevice()
                 },
@@ -106,6 +112,9 @@ struct AppShellView: View {
                 },
                 onRetryClaim: {
                     store.retryClaimDevice()
+                },
+                onRetryReadinessCheck: {
+                    store.retryDeviceReadinessCheck()
                 },
                 onSelectMode: { mode in
                     store.selectSetupMode(mode)
@@ -218,10 +227,13 @@ private struct PairingSetupView: View {
     let onDiscoverDevice: () -> Void
     let onDiscoveryTimeout: () -> Void
     let onConnectDevice: () -> Void
+    let onShowIncompatible: () -> Void
+    let onShowNotReady: () -> Void
     let onStartClaim: () -> Void
     let onClaimSuccess: () -> Void
     let onClaimFailure: () -> Void
     let onRetryClaim: () -> Void
+    let onRetryReadinessCheck: () -> Void
     let onSelectMode: (SetupMode) -> Void
     let onFinishConnection: () -> Void
     let onRetryPermission: () -> Void
@@ -304,6 +316,38 @@ private struct PairingSetupView: View {
                     onFinishConnection()
                 }
                 .buttonStyle(.borderedProminent)
+                Button("Device Not Ready") {
+                    onShowNotReady()
+                }
+                .buttonStyle(.bordered)
+                Button("Unsupported Device") {
+                    onShowIncompatible()
+                }
+                .buttonStyle(.bordered)
+
+            case .incompatible:
+                Text(pairingState.recoveryMessage ?? "This device is not supported.")
+                    .foregroundStyle(.secondary)
+                Button("Scan For Another Device") {
+                    onRetryDiscovery()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Back To Home") {
+                    onBackHome()
+                }
+                .buttonStyle(.bordered)
+
+            case .notReady:
+                Text(pairingState.recoveryMessage ?? "This device is not ready for setup.")
+                    .foregroundStyle(.secondary)
+                Button("Retry Check") {
+                    onRetryReadinessCheck()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Back To Home") {
+                    onBackHome()
+                }
+                .buttonStyle(.bordered)
 
             case .connected:
                 Text("Device connected. Continue by claiming the device and choosing the initial feature mode.")

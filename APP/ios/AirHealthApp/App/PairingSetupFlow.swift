@@ -6,12 +6,32 @@ enum PairingStep: String {
     case discovering = "discovering"
     case deviceDiscovered = "device_discovered"
     case connecting = "connecting"
+    case incompatible = "incompatible"
+    case notReady = "not_ready"
     case connected = "connected"
     case claiming = "claiming"
     case claimFailed = "claim_failed"
     case modeSelection = "mode_selection"
     case setupComplete = "setup_complete"
     case timeout = "timeout"
+}
+
+enum PairingRecoveryAction: String {
+    case surfaced = "surfaced"
+    case retry = "retry"
+    case exit = "exit"
+}
+
+struct PairingRecoveryEvent {
+    let failureStep: String
+    let recoveryAction: String
+
+    var payload: [String: String] {
+        [
+            "failure_step": failureStep,
+            "recovery_action": recoveryAction,
+        ]
+    }
 }
 
 enum SetupMode: String, CaseIterable {
