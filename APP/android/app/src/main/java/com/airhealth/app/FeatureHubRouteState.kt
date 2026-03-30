@@ -59,6 +59,8 @@ class FeatureHubRouteState(
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
 ) {
     private var entitlementCacheState: EntitlementCacheState = EntitlementCacheState()
+    var goalCacheState: GoalCacheState = GoalCacheState()
+        private set
 
     var route: FeatureHubRoute = initialRoute
         private set
@@ -77,6 +79,24 @@ class FeatureHubRouteState(
             state = entitlementCacheState,
             nowEpochMillis = currentTimeMillis(),
         )
+
+    fun goalFor(feature: FeatureKind): FeatureGoal? {
+        return goalCacheState.goalFor(feature)
+    }
+
+    fun applyGoalTemplate(template: GoalDraftTemplate) {
+        goalCacheState = goalCacheState.upsert(
+            feature = template.feature,
+            summary = template.summary,
+            targetLabel = template.targetLabel,
+            cadenceLabel = template.cadenceLabel,
+            updatedAtEpochMillis = currentTimeMillis(),
+        )
+    }
+
+    fun clearGoal(feature: FeatureKind) {
+        goalCacheState = goalCacheState.remove(feature)
+    }
 
     fun openFeature(feature: FeatureKind) {
         actionLockState = actionLockState.clearBlockedAttempt()
