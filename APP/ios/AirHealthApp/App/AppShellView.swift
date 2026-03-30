@@ -210,6 +210,7 @@ struct AppShellView: View {
                     fatSurface: store.sessionHistoryStoreState.fatHistorySurface(),
                     syncProjection: store.syncQueueProjection(for: context.feature),
                     activeSyncJob: store.activeSyncJob(for: context.feature),
+                    exportAuditSurface: store.exportAuditSurface(for: context.feature),
                     onRecordCompletedSummary: {
                         store.recordDemoCompletedSession(for: context.feature)
                     },
@@ -225,6 +226,19 @@ struct AppShellView: View {
                         if let activeJob = store.activeSyncJob(for: context.feature) {
                             store.markSyncAttemptFailed(sessionID: activeJob.sessionID, reasonCode: "offline_retry_required")
                         }
+                    },
+                    onExportLatestSummary: {
+                        _ = store.exportLatestCompletedSummary(
+                            for: context.feature,
+                            platform: .appleHealth
+                        )
+                    },
+                    onFailLatestExport: {
+                        store.failLatestCompletedSummaryExport(
+                            for: context.feature,
+                            platform: .appleHealth,
+                            reasonCode: "apple_health_unavailable"
+                        )
                     },
                     onReturnToFeature: {
                         store.returnToFeature()
@@ -537,10 +551,13 @@ private struct FeatureHistoryView: View {
     let fatSurface: FatHistorySurfaceState
     let syncProjection: FeatureSyncQueueProjection
     let activeSyncJob: PersistedSessionSyncJob?
+    let exportAuditSurface: ExportAuditSurfaceState
     let onRecordCompletedSummary: () -> Void
     let onStartNextSyncAttempt: () -> Void
     let onMarkSyncSuccess: () -> Void
     let onMarkSyncFailure: () -> Void
+    let onExportLatestSummary: () -> Void
+    let onFailLatestExport: () -> Void
     let onReturnToFeature: () -> Void
     let onReturnHome: () -> Void
 
@@ -642,6 +659,36 @@ private struct FeatureHistoryView: View {
                     onMarkSyncFailure()
                 }
                 .buttonStyle(.bordered)
+            }
+
+            Text("Health export")
+                .font(.headline)
+            Text("Export the latest completed consumer-safe summary and keep an audit record for each success or failure attempt.")
+                .foregroundStyle(.secondary)
+            if let latestStatusLabel = exportAuditSurface.latestStatusLabel {
+                Text("Latest export: \(latestStatusLabel) via \(exportAuditSurface.latestPlatformTitle ?? "health platform")")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if let latestFailureReason = exportAuditSurface.latestFailureReason {
+                Text("Failure reason: \(latestFailureReason)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Export To Apple Health") {
+                onExportLatestSummary()
+            }
+            .buttonStyle(.borderedProminent)
+            Button("Simulate Export Failure") {
+                onFailLatestExport()
+            }
+            .buttonStyle(.bordered)
+            ForEach(exportAuditSurface.records.prefix(3), id: \.auditID) { record in
+                Text("\(record.platform.title): \(record.statusLabel)")
+                    .font(.subheadline.weight(.semibold))
+                Text("Session \(record.sessionID) • token \(record.exportedResultToken)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             Button("Return To \(context.feature.title)") {
