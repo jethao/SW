@@ -389,6 +389,9 @@ class MainActivity : AppCompatActivity() {
         if (action == FeatureAction.GET_SUGGESTION) {
             return buildSuggestionActionView(context)
         }
+        if (action == FeatureAction.VIEW_HISTORY) {
+            return buildHistoryActionView(context)
+        }
 
         title = action.title
         val entitlement = routeState.effectiveEntitlement
@@ -451,6 +454,110 @@ class MainActivity : AppCompatActivity() {
                     routeState.returnHome()
                     renderRoute()
                 }
+            )
+        }
+    }
+
+    private fun buildHistoryActionView(context: SelectedFeatureContext): View {
+        title = FeatureAction.VIEW_HISTORY.title
+        val entitlement = routeState.effectiveEntitlement
+        val syncProjection = routeState.syncQueueProjectionFor(context.feature)
+        val activeJob = routeState.activeSyncJobFor(context.feature)
+
+        return verticalLayout().apply {
+            addView(headline("History and progress"))
+            addView(
+                bodyCopy(
+                    "Render consumer-safe history from persisted completed summaries, keep pending versus synced state explicit, and show feature-specific progress context.",
+                ),
+            )
+            addView(bodyCopy("Selected feature: ${context.feature.title}"))
+            addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
+
+            when (context.feature) {
+                FeatureKind.ORAL_HEALTH -> {
+                    val oralSurface = routeState.sessionHistoryStoreState.oralHistorySurface()
+                    addView(headline(oralSurface.baselineProgressLabel))
+                    addView(bodyCopy(oralSurface.progressDetail))
+                    oralSurface.latestStatusLabel?.let { addView(caption("Latest sync state: $it")) }
+                    oralSurface.items.forEach { item ->
+                        addView(bodyCopy(item.title))
+                        addView(caption("${item.progressLabel} • ${item.syncLabel}"))
+                        addView(bodyCopy(item.detail))
+                    }
+                }
+
+                FeatureKind.FAT_BURNING -> {
+                    val fatSurface = routeState.sessionHistoryStoreState.fatHistorySurface()
+                    addView(headline(fatSurface.latestFinalDeltaLabel ?: "No fat-burning sessions yet"))
+                    fatSurface.bestDeltaLabel?.let { addView(caption(it)) }
+                    addView(caption("${fatSurface.pendingCount} pending • ${fatSurface.syncedCount} synced"))
+                    fatSurface.items.forEach { item ->
+                        addView(bodyCopy(item.title))
+                        addView(caption("${item.finalDeltaLabel} • ${item.bestDeltaLabel} • ${item.syncLabel}"))
+                        addView(bodyCopy(item.detail))
+                    }
+                }
+            }
+
+            addView(headline("Sync queue"))
+            addView(
+                caption(
+                    "${syncProjection.pendingCount} pending • ${syncProjection.retryScheduledCount} retry • ${syncProjection.inFlightCount} in flight • ${syncProjection.poisonedCount} poisoned • ${syncProjection.syncedCount} synced",
+                ),
+            )
+            syncProjection.nextEligibleJob?.let { nextJob ->
+                addView(caption("Next eligible sync: ${nextJob.sessionId}"))
+            }
+            activeJob?.let { job ->
+                addView(bodyCopy("Current sync attempt: ${job.sessionId}"))
+                addView(caption("Idempotency key: ${job.idempotencyKey}"))
+            }
+
+            addView(
+                actionButton("Record Completed Summary") {
+                    routeState.recordDemoCompletedSession(context.feature)
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton(
+                    "Start Next Sync Attempt",
+                    enabled = syncProjection.nextEligibleJob != null,
+                ) {
+                    routeState.beginNextSyncAttempt()
+                    renderRoute()
+                },
+            )
+            if (activeJob != null) {
+                addView(
+                    actionButton("Mark Sync Success") {
+                        routeState.markSyncAttemptSucceeded(activeJob.sessionId)
+                        renderRoute()
+                    },
+                )
+                addView(
+                    secondaryButton("Simulate Sync Failure") {
+                        routeState.markSyncAttemptFailed(activeJob.sessionId, "offline_retry_required")
+                        renderRoute()
+                    },
+                )
+            }
+
+            addView(
+                actionButton("Return To ${context.feature.title}") {
+                    routeState.returnToFeature()
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton("Return To Home") {
+                    routeState.returnHome()
+                    renderRoute()
+                },
             )
         }
     }
