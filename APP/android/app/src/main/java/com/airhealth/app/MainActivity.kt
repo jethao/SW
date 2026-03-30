@@ -457,6 +457,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildGoalActionView(context: SelectedFeatureContext): View {
         title = FeatureAction.SET_GOALS.title
+        val entitlement = routeState.effectiveEntitlement
+        val goalSurface = goalEditorSurfaceState(entitlement)
 
         return verticalLayout().apply {
             addView(headline("Goal planner"))
@@ -467,6 +469,12 @@ class MainActivity : AppCompatActivity() {
             )
             addView(bodyCopy("Selected feature: ${context.feature.title}"))
             addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
+            goalSurface.detail?.let { detail ->
+                addView(bodyCopy(detail))
+            }
 
             val currentGoal = routeState.goalFor(context.feature)
             if (currentGoal != null) {
@@ -476,19 +484,28 @@ class MainActivity : AppCompatActivity() {
                 addView(caption("Cadence: ${currentGoal.cadenceLabel}"))
                 addView(caption("Local revision ${currentGoal.revision}"))
                 addView(
-                    secondaryButton("Clear Goal") {
+                    secondaryButton("Clear Goal", enabled = goalSurface.canEditGoal) {
                         routeState.clearGoal(context.feature)
                         renderRoute()
                     }
                 )
             } else {
-                addView(bodyCopy("No cached goal yet for ${context.feature.title}. Choose a draft below to create one locally."))
+                addView(
+                    bodyCopy(
+                        "No cached goal yet for ${context.feature.title}. " +
+                            if (goalSurface.canEditGoal) {
+                                "Choose a draft below to create one locally."
+                            } else {
+                                "Goal editing is paused until active entitlement returns."
+                            }
+                    )
+                )
             }
 
             addView(headline("Goal drafts"))
             goalTemplatesFor(context.feature).forEach { template ->
                 addView(
-                    actionButton(template.title) {
+                    actionButton(template.title, enabled = goalSurface.canEditGoal) {
                         routeState.applyGoalTemplate(template)
                         renderRoute()
                     }
@@ -514,6 +531,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildSuggestionActionView(context: SelectedFeatureContext): View {
         title = FeatureAction.GET_SUGGESTION.title
+        val entitlement = routeState.effectiveEntitlement
 
         return verticalLayout().apply {
             addView(headline("Suggestion planner"))
@@ -524,6 +542,9 @@ class MainActivity : AppCompatActivity() {
             )
             addView(bodyCopy("Selected feature: ${context.feature.title}"))
             addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
 
             routeState.goalFor(context.feature)?.let { goal ->
                 addView(headline("Goal context"))
@@ -532,6 +553,10 @@ class MainActivity : AppCompatActivity() {
             }
 
             val suggestion = routeState.suggestionFor(context.feature)
+            val suggestionSurface = suggestionRefreshSurfaceState(
+                entitlement = entitlement,
+                hasCachedSuggestion = suggestion != null,
+            )
             if (suggestion != null) {
                 addView(headline("Cached suggestion"))
                 addView(bodyCopy(suggestion.headline))
@@ -539,11 +564,26 @@ class MainActivity : AppCompatActivity() {
                 addView(caption("Support track: ${suggestion.supportingActionLabel}"))
                 addView(caption("Source: ${suggestion.entryPoint.wireValue} • Refresh ${suggestion.refreshRevision}"))
             } else {
-                addView(bodyCopy("No cached suggestion yet for ${context.feature.title}. Refresh one now and it will stay available when you re-enter this feature."))
+                addView(
+                    bodyCopy(
+                        "No cached suggestion yet for ${context.feature.title}. " +
+                            if (suggestionSurface.canRefreshSuggestion) {
+                                "Refresh one now and it will stay available when you re-enter this feature."
+                            } else {
+                                "A cached suggestion will appear here once active entitlement allows the first refresh."
+                            }
+                    )
+                )
+            }
+            suggestionSurface.detail?.let { detail ->
+                addView(bodyCopy(detail))
             }
 
             addView(
-                actionButton("Refresh From Feature Hub") {
+                actionButton(
+                    "Refresh From Feature Hub",
+                    enabled = suggestionSurface.canRefreshSuggestion,
+                ) {
                     routeState.refreshSuggestion(
                         feature = context.feature,
                         entryPoint = SuggestionEntryPoint.FEATURE_HUB,
@@ -552,7 +592,10 @@ class MainActivity : AppCompatActivity() {
                 }
             )
             addView(
-                secondaryButton("Refresh Result Follow-up") {
+                secondaryButton(
+                    "Refresh Result Follow-up",
+                    enabled = suggestionSurface.canRefreshSuggestion,
+                ) {
                     routeState.refreshSuggestion(
                         feature = context.feature,
                         entryPoint = SuggestionEntryPoint.RESULT_CONTEXT,
