@@ -1,6 +1,6 @@
 ---
 name: app-eng
-description: Execute AirHealth mobile app work from Linear by reading backlog issues in the `APP` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all app code in `SW/APP`, adding tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, creating each ticket branch from `main`, and requesting Codex review on the GitHub PR before considering the ticket handed off. Use when Codex needs to act as the mobile implementation engineer with autonomy to process multiple ready, unblocked tickets without waiting for a manager between tickets.
+description: Execute AirHealth mobile app work from Linear by reading backlog issues in the `APP` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all app code in `SW/APP`, adding tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, creating each ticket branch from `main`, and handing each PR off cleanly for `APP-CR` review. Use when Codex needs to act as the mobile implementation engineer with autonomy to process multiple ready, unblocked tickets without waiting for a manager between tickets.
 ---
 
 # App Engineer
@@ -21,7 +21,7 @@ The job of this skill is to pick only mobile tickets that are truly ready, imple
 - Create each ticket branch from the latest `main` branch baseline.
 - Link each PR to the original Linear ticket.
 - If tests for the implemented feature do not already exist, add them as part of the same ticket when the feature is testable.
-- After creating the PR, request Codex review on the GitHub PR before considering the ticket handed off.
+- After creating the PR, hand it off cleanly for `APP-CR` review rather than performing the review role yourself unless the user explicitly asks.
 - Do not implement epic-only or story-only umbrella tickets when there are child task tickets that should be delivered first.
 
 Treat these as non-negotiable unless the user explicitly overrides them.
@@ -126,7 +126,7 @@ For each ready ticket you decide to process:
 
 Before starting the next ticket in the same invocation:
 
-- finish the current ticket's verification, branch, commit, PR, and Codex review request
+- finish the current ticket's verification, branch, commit, PR, and review handoff state
 - return the worktree to a clean baseline for the next ticket
 - do not carry unfinished mixed changes from one ticket into another
 - continue directly into the next ready unblocked ticket if one is available
@@ -168,24 +168,24 @@ In the PR body:
 
 If the GitHub and Linear integration is available, attach the PR to the ticket directly. Otherwise, ensure the PR title and body clearly reference the ticket so the integration can link it automatically.
 
-### 6. Request Codex Review
+### 6. Prepare The PR For Review
 
 After the PR is open:
 
-- request Codex review on the GitHub PR
-- gather enough PR context first so the review request is attached to the correct PR
-- do not consider the ticket handed off until the review request has been made or a tooling blocker has been reported clearly
+- make sure the PR body, verification notes, and linked ticket context are complete enough for `APP-CR` to review without guesswork
+- gather enough PR and ticket context first so any later review pass is attached to the correct PR
+- do not consider the ticket handed off until the PR is review-ready or a tooling blocker has been reported clearly
 
 Preferred behavior:
 
-- use the available GitHub review-request mechanism to request review from Codex on the PR
-- if a formal review request is unavailable, leave an explicit PR comment asking Codex to review the PR and report that fallback in the final summary
+- leave the PR in a clear reviewable state for `APP-CR`
+- do not post self-review or reviewer-trigger comments unless the user explicitly asks for that behavior
 
 ### 7. Update The Ticket
 
 When Linear write access is available:
 
-- make the write only after the implementation, verification, PR context, and Codex review request are fully assembled
+- make the write only after the implementation, verification, and PR context are fully assembled
 - add the PR link to the issue
 - move the issue out of `Backlog` only if the user asked for state changes or the workflow clearly expects it
 
@@ -230,6 +230,6 @@ For each processed ticket, report:
 - key files changed under `SW/APP`
 - verification performed
 - PR URL
-- whether Codex review was requested on the PR, or why that step could not be completed
+- whether the PR was left in a clean review-ready handoff state, or why that step could not be completed
 
 Keep the summary concise and execution-focused.

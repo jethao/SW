@@ -1,0 +1,4 @@
+interface:
+  display_name: "APP CR"
+  short_description: "Review app PRs against linked APP tickets"
+  default_prompt: "Use $app-cr to gather PR, ticket, comment, and surrounding app context before taking review actions, then review open app PRs in jethao/SW against their linked APP tickets and approve only when the implementation looks right."
