@@ -11,12 +11,11 @@ The purpose of this skill is to coordinate the mobile delivery loop safely:
 
 1. reconcile backlog parent tickets against their sub-ticket completion state
 2. select only ready mobile tickets with no unresolved blockers
-3. invoke `APP-ENG` to implement ready tickets and open PRs
-4. allow `APP-ENG` to start multiple no-blocker tickets in parallel when safe
-5. invoke `APP-CR` to review open app PRs
-6. invoke `APP-ENG` to address actionable review comments when needed
-7. continue alternating `APP-CR` and `APP-ENG` until review is clean or blocked
-8. refresh the manager report with the current state
+3. invoke `APP-ENG` to implement and open PRs for ready tickets
+4. wait for PRs to complete, then invoke `APP-CR` to review live PRs against their linked `APP` tickets
+5. alternate `APP-ENG` and `APP-CR` until each active PR has no remaining actionable review findings
+6. generate a report from the PR review history
+7. continue advancing only tickets that still have no unresolved blockers or dependency gaps
 
 ## Managed Skills
 
@@ -30,17 +29,14 @@ Use `APP-ENG` for detailed execution and `APP-CR` for detailed review. `APP-mgr`
 ## Hard Rules
 
 - Work only in mobile scope under `SW/APP`.
-- Before invoking `APP-ENG`, `APP-CR`, or making any Linear or GitHub write call, collect as much relevant queue context as possible first: backlog parent state, active PR map, linked ticket dependencies, review history, blockers, and currently ready tickets.
-- First inspect Linear tickets in team `APP` filtered to status `Backlog`.
+- Before invoking `APP-ENG`, `APP-CR`, or making any Linear or GitHub write call, collect as much relevant queue context as possible first: backlog story state, active PR map, linked ticket dependencies, review history, blockers, and currently ready tickets.
 - Before invoking `APP-ENG`, inspect backlog parent tickets and mark a parent `Done` only when all of its sub-tickets are already `Done`.
 - Only start tickets in the `APP` team that are in project `AirHealth` and have no unresolved blockers or practical dependency gaps.
-- If no app PRs are open at the start of the implementation phase, APP-mgr should hand control to `APP-ENG` and let it process all currently ready unblocked tickets it can safely isolate, including in parallel when their write scopes do not conflict.
-- When an app PR is open, treat the manager as being in review-wait or comment-resolution mode only.
-- Do not start additional brand-new backlog tickets while unresolved app PRs from an earlier batch are already open, unless the user explicitly overrides that limit.
-- After `APP-ENG` opens or updates an app PR, invoke `APP-CR` to review the current patch set before deciding the next step.
-- If `APP-CR` or GitHub review feedback leaves actionable comments on an open PR, invoke `APP-ENG` to address them on the same ticket branch, then re-check review state.
-- Continue alternating `APP-CR` and `APP-ENG` across all active PRs until each lane is review-clean, approved, or blocked clearly.
-- Refresh `SW/APP/manager.rpt` on every invocation.
+- Open PRs do not block starting another ticket unless the new ticket depends on one of those still-open tickets or is otherwise practically blocked.
+- Do not start a blocked ticket just because some other open PR is review-clean.
+- Treat dependency readiness, not merge order alone, as the gate for moving on to the next ticket.
+- If GitHub cannot record approval because the same account authored and reviewed the PR, use review history and the latest `APP-CR` pass to determine approval-ready status.
+- Generate or refresh a manager report on every invocation.
 
 Treat these as non-negotiable unless the user explicitly overrides them.
 
@@ -68,26 +64,28 @@ Treat each invocation as managing the current mobile delivery queue, which may y
 
 Possible states:
 
-- `idle`: no open app PR exists, so ready ticket work may be started
-- `implementing`: one or more ready tickets exist with no open app PR yet, so invoke `APP-ENG`
-- `waiting_for_review`: one or more app PRs are open and `APP-CR` review is still pending or incomplete
-- `comment_resolution`: one or more app PRs have actionable review comments that must be addressed
-- `review_clean`: all currently open app PRs have no remaining actionable review findings from `APP-CR`
+- `idle`: no open APP PR exists, so a ready ticket may be started
+- `implementing`: a ready ticket exists with no PR yet, so invoke `APP-ENG`
+- `under_review`: a APP PR is open and has unresolved actionable feedback
+- `approval_ready`: the current PR has no remaining actionable review findings
+- `waiting_for_merge`: the current PR is approval-ready or approved, but still open
 - `blocked`: no ticket is ready because of blockers, dependency gaps, or unresolved upstream work
 
 ## Queue Gate
 
 Before doing any implementation work:
 
-1. inspect `APP` backlog tickets
-2. inspect backlog parent tickets and their sub-tickets
-3. if every sub-ticket is `Done`, set the parent itself to `Done`
-4. inspect open app PRs in `jethao/SW`
-5. inspect the linked `APP` ticket for each open app PR
-6. inspect outstanding review comments and review state for those PRs
-7. only if there are no open app PRs, look for the current set of ready `APP` backlog tickets with no unresolved blocker
+1. inspect `APP` backlog tickets with the `Story` label
+2. for each such story, inspect its sub-tickets
+3. if every sub-ticket is `Done`, set the story status to `Done`
+4. inspect open APP PRs in `jethao/SW`
+5. inspect the linked `APP` ticket for each open APP PR
+6. review any active PR that has unresolved actionable feedback
+7. also look for the next ready `APP` tickets with no unresolved blocker and no dependency on still-open work
 
 Prefer batched read calls that build one coherent queue snapshot before any issue-state write.
+
+Open PRs are allowed to coexist as long as each newly started ticket is still independently unblocked.
 
 ## Orchestration Workflow
 
@@ -95,7 +93,7 @@ Follow this sequence.
 
 ### 1. Reconcile Backlog Parents
 
-- list `APP` backlog issues
+- list `APP` backlog issues labeled `Story`
 - inspect parent tickets and their sub-tickets
 - if all sub-tickets of a parent are `Done`, update the parent itself to `Done`
 - do not mark a parent `Done` if any sub-ticket is still open, canceled, duplicate, or otherwise unresolved
@@ -107,16 +105,14 @@ This reconciliation pass must happen before any `APP-ENG` invocation.
 - list open PRs in `jethao/SW`
 - keep only PRs that materially touch `APP/`
 - gather linked ticket state, dependency impact, review-request state, and outstanding review comments before deciding the next action
+- if one or more such PRs exist, review the ones with unresolved feedback first
+- track which linked tickets are still open so dependent tickets are not started prematurely
 
 If one or more app PRs are open:
 
-- do not start any additional brand-new backlog ticket outside the current open-PR batch
-- if the current patch set has not yet been reviewed, invoke `APP-CR`
-- if review comments exist, invoke `APP-ENG` to address them on the same branch
-- after fixes are pushed, invoke `APP-CR` again on the updated patch set
-- if there are no actionable comments across the open PR set, record the batch as waiting for merge or review-clean and stop
-
-Open PRs are a hard stop for starting additional backlog batches.
+- handle review-loop work for any PR with actionable findings
+- keep approval-ready but unmerged PRs recorded as open dependency candidates
+- continue to queue evaluation for other tickets that remain independently ready
 
 ### 3. Start Ready Backlog Work Only When No PR Is Open
 
@@ -124,10 +120,7 @@ Open PRs are a hard stop for starting additional backlog batches.
 - use the already-gathered dependency context to eliminate tickets that are only superficially ready
 - choose only tickets with no unresolved blockers and no practical dependency gaps
 - prefer leaf implementation tasks over stories
-- invoke `APP-ENG` once and allow it to work through the currently ready unblocked tickets autonomously
-- expect `APP-ENG` to isolate each ticket in its own branch and PR even when it processes multiple tickets in one invocation
-- allow `APP-ENG` to run independent ready tickets in parallel when their write scopes do not conflict
-- treat the resulting PR set as one implementation batch for the subsequent review loop
+- invoke `APP-ENG` for one or more such ready tickets as appropriate for the current invocation
 
 If no ticket is ready:
 
@@ -138,28 +131,19 @@ If no ticket is ready:
 For active app PRs:
 
 - invoke `APP-CR` when each current patch set has not yet been reviewed or when a fresh review pass is needed
-- read current PR comments, review comments, and review state across the whole open PR set
-- if actionable comments exist on any PR, invoke `APP-ENG` to address them on the matching ticket branch
-- after fixes are pushed, invoke `APP-CR` again on the updated patch sets
-- continue alternating `APP-CR` and `APP-ENG` until no actionable comments remain across the whole open PR set
+- collect review findings, PR comments, review comments, and current PR status
 
-Do not start another implementation pass while this loop is active.
+If `APP-CR` finds actionable issues:
 
-### 5. Stop On Review-Clean Open PRs
+- invoke `APP-ENG` to address those comments on the same ticket branch
+- after the fixes land, invoke `APP-CR` again
+- continue alternating `APP-ENG` then `APP-CR` until no actionable findings remain
 
-If the open PR set has:
+If `APP-CR` finds no actionable issues:
 
-- `APP-CR` review completed
-- no remaining actionable comments
-- no new implementation work required
-
-then:
-
-- record it as `review_clean`
-- refresh the report
-- stop the current invocation
-
-Do not auto-progress to the next backlog batch until the current open PR set is merged or otherwise no longer open.
+- treat the PR as approval-ready
+- keep the PR open in the report as waiting for merge
+- continue only with other independently ready tickets
 
 ## Review-Complete Logic
 
@@ -176,9 +160,9 @@ If review has not yet happened, or comments remain unresolved, the manager must 
 
 Stop the current invocation when any of the following is true:
 
-- one or more app PRs from the current batch are still open, even if they are review-clean
 - one or more active PRs still have unresolved actionable review feedback after the current pass
-- there are no open PRs and no ready unblocked backlog tickets exist
+- all currently open PRs are approval-ready or waiting for merge and there are no additional ready unblocked tickets
+- there are no open PRs needing action and no ready unblocked tickets exist
 - the next candidate tickets are blocked by dependencies, missing contracts, or unresolved upstream work
 
 Do not auto-advance beyond these stop points.
