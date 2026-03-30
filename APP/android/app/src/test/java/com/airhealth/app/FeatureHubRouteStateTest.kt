@@ -7,6 +7,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FeatureHubRouteStateTest {
+    private fun activeRouteState(): FeatureHubRouteState {
+        return FeatureHubRouteState(currentTimeMillis = { 1_000L }).apply {
+            replaceEntitlementCacheState(
+                EntitlementCacheState(
+                    snapshot = CachedEntitlementSnapshot(
+                        sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                        verifiedAtEpochMillis = 1_000L,
+                    ),
+                    isBackendReachable = true,
+                    lastVerificationAttemptAtEpochMillis = 1_000L,
+                ),
+            )
+        }
+    }
+
     @Test
     fun openingFeatureSetsSelectedFeatureContext() {
         val routeState = FeatureHubRouteState()
@@ -23,7 +38,7 @@ class FeatureHubRouteStateTest {
 
     @Test
     fun childRouteCanReturnToSelectedFeature() {
-        val routeState = FeatureHubRouteState()
+        val routeState = activeRouteState()
 
         routeState.openFeature(FeatureKind.FAT_BURNING)
         routeState.openAction(FeatureAction.MEASURE)
@@ -42,7 +57,7 @@ class FeatureHubRouteStateTest {
 
     @Test
     fun conflictingActionAttemptKeepsCurrentRouteAndReasonCode() {
-        val routeState = FeatureHubRouteState()
+        val routeState = activeRouteState()
 
         routeState.openFeature(FeatureKind.ORAL_HEALTH)
         routeState.openAction(FeatureAction.MEASURE)
@@ -59,7 +74,7 @@ class FeatureHubRouteStateTest {
 
     @Test
     fun resolvingCurrentActionAllowsNextEntryPoint() {
-        val routeState = FeatureHubRouteState()
+        val routeState = activeRouteState()
 
         routeState.openFeature(FeatureKind.ORAL_HEALTH)
         routeState.openAction(FeatureAction.MEASURE)

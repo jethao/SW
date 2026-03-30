@@ -7,7 +7,7 @@ import org.junit.Test
 class ActionGateAnalyticsTest {
     @Test
     fun allowedTransitionEmitsNormalizedPayload() {
-        val routeState = FeatureHubRouteState()
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
         routeState.replaceEntitlementCacheState(activeEntitlementState())
 
         routeState.openFeature(FeatureKind.ORAL_HEALTH)
@@ -25,7 +25,7 @@ class ActionGateAnalyticsTest {
 
     @Test
     fun blockedTransitionEmitsReasonCodeWithoutInternalFields() {
-        val routeState = FeatureHubRouteState()
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
         routeState.replaceEntitlementCacheState(activeEntitlementState())
 
         routeState.openFeature(FeatureKind.FAT_BURNING)
