@@ -56,7 +56,10 @@ sealed class FeatureHubRoute {
 
 class FeatureHubRouteState(
     initialRoute: FeatureHubRoute = FeatureHubRoute.Home,
+    private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
 ) {
+    private var entitlementCacheState: EntitlementCacheState = EntitlementCacheState()
+
     var route: FeatureHubRoute = initialRoute
         private set
 
@@ -68,6 +71,12 @@ class FeatureHubRouteState(
 
     val lastBlockedActionAttempt: BlockedActionAttempt?
         get() = actionLockState.blockedAttempt
+
+    val effectiveEntitlement: EffectiveEntitlement
+        get() = EntitlementEvaluator.deriveEffectiveState(
+            state = entitlementCacheState,
+            nowEpochMillis = currentTimeMillis(),
+        )
 
     fun openFeature(feature: FeatureKind) {
         actionLockState = actionLockState.clearBlockedAttempt()
@@ -255,6 +264,23 @@ class FeatureHubRouteState(
     fun openAction(action: FeatureAction) {
         val currentContext = currentFeatureContext() ?: return
         val requestedAction = ManagedAction.fromFeatureAction(action)
+        val entitlementBlockReason = entitlementBlockReason(
+            action = requestedAction,
+            entitlement = effectiveEntitlement,
+        )
+
+        if (entitlementBlockReason != null) {
+            actionLockState = actionLockState.blockByEntitlement(
+                feature = currentContext.feature,
+                action = requestedAction,
+                reasonCode = entitlementBlockReason,
+            )
+            actionLockState.blockedAttempt?.let { blockedAttempt ->
+                actionGateAnalytics.recordBlocked(blockedAttempt)
+            }
+            return
+        }
+
         actionLockState = actionLockState.tryAcquire(
             feature = currentContext.feature,
             action = requestedAction,
@@ -296,6 +322,10 @@ class FeatureHubRouteState(
         return actionLockState.activeAction
     }
 
+    fun replaceEntitlementCacheState(state: EntitlementCacheState) {
+        entitlementCacheState = state
+    }
+
     private fun currentFeatureContext(): SelectedFeatureContext? {
         return when (val currentRoute = route) {
             is FeatureHubRoute.Setup -> null
@@ -315,4 +345,33 @@ class FeatureHubRouteState(
             else -> null
         }
     }
+
+    private fun entitlementBlockReason(
+        action: ManagedAction,
+        entitlement: EffectiveEntitlement,
+    ): ActionLockReasonCode? {
+        return when (action) {
+            ManagedAction.MEASURE ->
+                if (entitlement.canStartNewSessions) null else entitlement.reasonCode()
+
+            ManagedAction.SET_GOALS ->
+                if (entitlement.canEditGoals) null else entitlement.reasonCode()
+
+            ManagedAction.GET_SUGGESTION ->
+                if (entitlement.canRequestLiveSuggestions) null else entitlement.reasonCode()
+
+            ManagedAction.VIEW_HISTORY,
+            ManagedAction.CONSULT_PROFESSIONALS,
+            ManagedAction.SETUP -> null
+        }
+    }
+
+    private fun EffectiveEntitlement.reasonCode(): ActionLockReasonCode {
+        return when (mode) {
+            EffectiveEntitlementMode.ACTIVE -> ActionLockReasonCode.CONFLICTING_ACTION_IN_PROGRESS
+            EffectiveEntitlementMode.TEMPORARY_ACCESS -> ActionLockReasonCode.TEMPORARY_ACCESS_RESTRICTION
+            EffectiveEntitlementMode.READ_ONLY -> ActionLockReasonCode.READ_ONLY_MODE_RESTRICTION
+        }
+    }
+
 }

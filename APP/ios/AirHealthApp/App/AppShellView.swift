@@ -56,7 +56,17 @@ struct SelectedFeatureContext {
 }
 
 struct AppShellView: View {
-    @StateObject private var store = AppShellStore()
+    @StateObject private var store: AppShellStore
+
+    init() {
+        let store = AppShellStore()
+        store.replaceEntitlementCacheState(
+            scaffoldBootstrapEntitlementState(
+                nowEpochMillis: Int64(Date().timeIntervalSince1970 * 1000)
+            )
+        )
+        _store = StateObject(wrappedValue: store)
+    }
 
     var body: some View {
         NavigationStack {
@@ -135,6 +145,7 @@ struct AppShellView: View {
         case let .featureHub(context):
             FeatureActionsView(
                 context: context,
+                blockedAttempt: store.lastBlockedActionAttempt,
                 onSelectAction: { action in
                     store.openAction(action)
                 },
@@ -434,6 +445,7 @@ private struct PairingSetupView: View {
 
 private struct FeatureActionsView: View {
     let context: SelectedFeatureContext
+    let blockedAttempt: BlockedActionAttempt?
     let onSelectAction: (FeatureAction) -> Void
     let onReturnHome: () -> Void
 
@@ -451,6 +463,16 @@ private struct FeatureActionsView: View {
 
             Text("Selecting one action acquires the global action lock until that flow resolves.")
                 .foregroundStyle(.secondary)
+
+            if let blockedAttempt {
+                Text("Blocked action")
+                    .font(.headline)
+                Text(blockedAttempt.message)
+                    .foregroundStyle(.secondary)
+                Text("Reason code: \(blockedAttempt.reasonCode.rawValue)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
 
             ForEach(FeatureAction.allCases) { action in
                 Button(action.title) {

@@ -14,6 +14,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        routeState.replaceEntitlementCacheState(
+            scaffoldBootstrapEntitlementState(System.currentTimeMillis()),
+        )
         renderRoute()
     }
 
@@ -322,6 +325,12 @@ class MainActivity : AppCompatActivity() {
             addView(
                 bodyCopy("Selecting one action acquires the global action lock until that flow resolves.")
             )
+
+            routeState.lastBlockedActionAttempt?.let { blockedAttempt ->
+                addView(headline("Blocked action"))
+                addView(bodyCopy(blockedAttempt.message))
+                addView(caption("Reason code: ${blockedAttempt.reasonCode.code}"))
+            }
 
             FeatureAction.entries.forEach { action ->
                 addView(
