@@ -253,6 +253,35 @@ struct AppShellView: View {
                         store.returnHome()
                     }
                 )
+            } else if action == .measure && context.feature == .oralHealth {
+                OralMeasurementView(
+                    context: context,
+                    flowState: store.oralMeasurementFlowState,
+                    onStartSession: {
+                        store.startOralMeasurement()
+                    },
+                    onWarmupPassed: {
+                        store.markOralWarmupPassed()
+                    },
+                    onWarmupFailed: {
+                        store.markOralWarmupFailed()
+                    },
+                    onCaptureValidSample: {
+                        store.completeOralMeasurement()
+                    },
+                    onInvalidSample: {
+                        store.markOralInvalidSample()
+                    },
+                    onCancelSession: {
+                        store.cancelOralMeasurement()
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
             } else {
                 FeatureActionDestinationView(
                     context: context,
@@ -812,6 +841,116 @@ private struct FeatureActionsView: View {
             }
 
             Button("Back To Home") {
+                onReturnHome()
+            }
+            .buttonStyle(.bordered)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct OralMeasurementView: View {
+    let context: SelectedFeatureContext
+    let flowState: OralMeasurementFlowState
+    let onStartSession: () -> Void
+    let onWarmupPassed: () -> Void
+    let onWarmupFailed: () -> Void
+    let onCaptureValidSample: () -> Void
+    let onInvalidSample: () -> Void
+    let onCancelSession: () -> Void
+    let onReturnToFeature: () -> Void
+    let onReturnHome: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Oral measurement")
+                .font(.title3.bold())
+
+            Text("Guide one oral session from warm-up through a confirmed score, and keep baseline-building progress explicit from 1/5 to 5/5.")
+                .foregroundStyle(.secondary)
+
+            Text("Selected feature: \(context.feature.title)")
+            Text("Return route ID: \(context.lastVisitedRouteID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            Text(flowState.baselineProgress.progressLabel)
+                .font(.headline)
+            Text(flowState.baselineProgress.detailLabel)
+                .foregroundStyle(.secondary)
+
+            switch flowState.step {
+            case .preparing:
+                Text("Start a guided oral session after brushing and with the device ready nearby.")
+                    .foregroundStyle(.secondary)
+                Button("Start Oral Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            case .warming:
+                Text("Warm-up is in progress. Keep the device stable before taking an oral sample.")
+                    .foregroundStyle(.secondary)
+                Button("Warm-up Passed") {
+                    onWarmupPassed()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Warm-up Failed") {
+                    onWarmupFailed()
+                }
+                .buttonStyle(.bordered)
+            case .measuring:
+                Text("Take one steady oral sample. Invalid samples must stay retryable and never appear as completed results.")
+                    .foregroundStyle(.secondary)
+                Button("Capture Valid Oral Sample") {
+                    onCaptureValidSample()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Invalid Sample") {
+                    onInvalidSample()
+                }
+                .buttonStyle(.bordered)
+                Button("Cancel Session") {
+                    onCancelSession()
+                }
+                .buttonStyle(.bordered)
+            case .complete:
+                Text(flowState.latestResult?.completionLabel ?? "Valid oral sample confirmed by the device.")
+                    .foregroundStyle(.secondary)
+                Text(flowState.latestResult?.scoreLabel ?? "Oral Health Score unavailable")
+                    .font(.title3.bold())
+                Text(flowState.latestResult?.baselineProgressLabel ?? flowState.baselineProgress.progressLabel)
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                Text(flowState.latestResult?.baselineDetail ?? flowState.baselineProgress.detailLabel)
+                    .foregroundStyle(.secondary)
+                Button("Start Another Oral Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            case .failed:
+                Text(flowState.recoveryMessage ?? "This oral session did not complete. Retry without saving a result.")
+                    .foregroundStyle(.secondary)
+                Button("Retry Oral Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            case .canceled:
+                Text(flowState.recoveryMessage ?? "Session canceled. No oral score was saved.")
+                    .foregroundStyle(.secondary)
+                Button("Restart Oral Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Button("Return To \(context.feature.title)") {
+                onReturnToFeature()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Return To Home") {
                 onReturnHome()
             }
             .buttonStyle(.bordered)

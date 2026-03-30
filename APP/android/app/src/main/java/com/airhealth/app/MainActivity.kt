@@ -392,6 +392,9 @@ class MainActivity : AppCompatActivity() {
         if (action == FeatureAction.VIEW_HISTORY) {
             return buildHistoryActionView(context)
         }
+        if (action == FeatureAction.MEASURE && context.feature == FeatureKind.ORAL_HEALTH) {
+            return buildOralMeasurementActionView(context)
+        }
 
         title = action.title
         val entitlement = routeState.effectiveEntitlement
@@ -454,6 +457,121 @@ class MainActivity : AppCompatActivity() {
                     routeState.returnHome()
                     renderRoute()
                 }
+            )
+        }
+    }
+
+    private fun buildOralMeasurementActionView(context: SelectedFeatureContext): View {
+        title = FeatureAction.MEASURE.title
+        val flowState = routeState.oralMeasurementFlowState
+
+        return verticalLayout().apply {
+            addView(headline("Oral measurement"))
+            addView(
+                bodyCopy(
+                    "Guide one oral session from warm-up through a confirmed score, and keep baseline-building progress explicit from 1/5 to 5/5.",
+                ),
+            )
+            addView(bodyCopy("Selected feature: ${context.feature.title}"))
+            addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            addView(headline(flowState.baselineProgress.progressLabel))
+            addView(bodyCopy(flowState.baselineProgress.detailLabel))
+
+            when (flowState.step) {
+                OralMeasurementFlowStep.PREPARING -> {
+                    addView(bodyCopy("Start a guided oral session after brushing and with the device ready nearby."))
+                    addView(
+                        actionButton("Start Oral Session") {
+                            routeState.startOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                OralMeasurementFlowStep.WARMING -> {
+                    addView(bodyCopy("Warm-up is in progress. Keep the device stable before taking an oral sample."))
+                    addView(
+                        actionButton("Warm-up Passed") {
+                            routeState.markOralWarmupPassed()
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Warm-up Failed") {
+                            routeState.markOralWarmupFailed()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                OralMeasurementFlowStep.MEASURING -> {
+                    addView(bodyCopy("Take one steady oral sample. Invalid samples must stay retryable and never appear as completed results."))
+                    addView(
+                        actionButton("Capture Valid Oral Sample") {
+                            routeState.completeOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Invalid Sample") {
+                            routeState.markOralInvalidSample()
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Cancel Session") {
+                            routeState.cancelOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                OralMeasurementFlowStep.COMPLETE -> {
+                    val result = flowState.latestResult
+                    addView(bodyCopy(result?.completionLabel ?: "Valid oral sample confirmed by the device."))
+                    addView(headline(result?.scoreLabel ?: "Oral Health Score unavailable"))
+                    addView(caption(result?.baselineProgressLabel ?: flowState.baselineProgress.progressLabel))
+                    addView(bodyCopy(result?.baselineDetail ?: flowState.baselineProgress.detailLabel))
+                    addView(
+                        actionButton("Start Another Oral Session") {
+                            routeState.startOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                OralMeasurementFlowStep.FAILED -> {
+                    addView(bodyCopy(flowState.recoveryMessage ?: "This oral session did not complete. Retry without saving a result."))
+                    addView(
+                        actionButton("Retry Oral Session") {
+                            routeState.startOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                OralMeasurementFlowStep.CANCELED -> {
+                    addView(bodyCopy(flowState.recoveryMessage ?: "Session canceled. No oral score was saved."))
+                    addView(
+                        actionButton("Restart Oral Session") {
+                            routeState.startOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+            }
+
+            addView(
+                actionButton("Return To ${context.feature.title}") {
+                    routeState.returnToFeature()
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton("Return To Home") {
+                    routeState.returnHome()
+                    renderRoute()
+                },
             )
         }
     }
