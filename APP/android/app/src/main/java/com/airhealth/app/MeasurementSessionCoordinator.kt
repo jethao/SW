@@ -33,6 +33,7 @@ data class MeasurementSessionState(
     val phase: MeasurementSessionPhase,
     val recoveryMarker: MeasurementRecoveryMarker,
     val terminalSummary: MeasurementTerminalSummary? = null,
+    val terminalConfirmationReceived: Boolean = false,
     val failureReason: String? = null,
     val cancellationReason: String? = null,
     val lastEventCode: String? = null,
@@ -152,18 +153,40 @@ object MeasurementSessionCoordinator {
             )
 
             is MeasurementBleEvent.TerminalReadingAvailable -> state.copy(
+                phase = if (state.terminalConfirmationReceived) {
+                    MeasurementSessionPhase.COMPLETE
+                } else {
+                    state.phase
+                },
+                recoveryMarker = if (state.terminalConfirmationReceived) {
+                    state.recoveryMarker.copy(
+                        lastStablePhase = MeasurementSessionPhase.COMPLETE,
+                        replayRequired = false,
+                    )
+                } else {
+                    state.recoveryMarker
+                },
                 terminalSummary = event.summary,
+                terminalConfirmationReceived = state.terminalConfirmationReceived,
                 lastEventCode = event.code,
             )
 
-            MeasurementBleEvent.TerminalReadingConfirmed -> state.copy(
-                phase = MeasurementSessionPhase.COMPLETE,
-                recoveryMarker = state.recoveryMarker.copy(
-                    lastStablePhase = MeasurementSessionPhase.COMPLETE,
-                    replayRequired = false,
-                ),
-                lastEventCode = event.code,
-            )
+            MeasurementBleEvent.TerminalReadingConfirmed -> if (state.terminalSummary != null) {
+                state.copy(
+                    phase = MeasurementSessionPhase.COMPLETE,
+                    recoveryMarker = state.recoveryMarker.copy(
+                        lastStablePhase = MeasurementSessionPhase.COMPLETE,
+                        replayRequired = false,
+                    ),
+                    terminalConfirmationReceived = true,
+                    lastEventCode = event.code,
+                )
+            } else {
+                state.copy(
+                    terminalConfirmationReceived = true,
+                    lastEventCode = event.code,
+                )
+            }
 
             is MeasurementBleEvent.DeviceDisconnected -> state.copy(
                 phase = MeasurementSessionPhase.PAUSED,

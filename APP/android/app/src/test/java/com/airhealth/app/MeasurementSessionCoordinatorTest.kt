@@ -132,4 +132,31 @@ class MeasurementSessionCoordinatorTest {
         assertEquals("sensor_timeout", failedAfterLateCancel.failureReason)
         assertEquals("measurement_failed", failedAfterLateCancel.lastEventCode)
     }
+
+    @Test
+    fun outOfOrderConfirmationWaitsForTerminalPayload() {
+        var state = MeasurementSessionState.begin(
+            sessionId = "session-fat-003",
+            feature = FeatureKind.FAT_BURNING,
+        )
+
+        state = MeasurementSessionCoordinator.reduce(state, MeasurementBleEvent.MeasurementStarted)
+        state = MeasurementSessionCoordinator.reduce(state, MeasurementBleEvent.TerminalReadingConfirmed)
+
+        assertEquals(MeasurementSessionPhase.MEASURING, state.phase)
+        assertTrue(state.terminalConfirmationReceived)
+        assertEquals("terminal_reading_confirmed", state.lastEventCode)
+
+        state = MeasurementSessionCoordinator.reduce(
+            state,
+            MeasurementBleEvent.TerminalReadingAvailable(
+                MeasurementTerminalSummary(resultToken = "out-of-order-token"),
+            ),
+        )
+
+        assertEquals(MeasurementSessionPhase.COMPLETE, state.phase)
+        assertEquals(MeasurementSessionPhase.COMPLETE, state.recoveryMarker.lastStablePhase)
+        assertFalse(state.recoveryMarker.replayRequired)
+        assertEquals("out-of-order-token", state.terminalSummary?.resultToken)
+    }
 }

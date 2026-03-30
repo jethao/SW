@@ -30,6 +30,7 @@ struct MeasurementSessionState {
     let phase: MeasurementSessionPhase
     let recoveryMarker: MeasurementRecoveryMarker
     let terminalSummary: MeasurementTerminalSummary?
+    let terminalConfirmationReceived: Bool
     let failureReason: String?
     let cancellationReason: String?
     let lastEventCode: String?
@@ -48,6 +49,7 @@ struct MeasurementSessionState {
                 replayRequired: false
             ),
             terminalSummary: nil,
+            terminalConfirmationReceived: false,
             failureReason: nil,
             cancellationReason: nil,
             lastEventCode: "session_prepared"
@@ -111,6 +113,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: false
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -126,6 +129,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: false
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -141,6 +145,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: false
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -156,6 +161,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: false
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -164,9 +170,16 @@ enum MeasurementSessionCoordinator {
             return MeasurementSessionState(
                 sessionID: state.sessionID,
                 feature: state.feature,
-                phase: state.phase,
-                recoveryMarker: state.recoveryMarker,
+                phase: state.terminalConfirmationReceived ? .complete : state.phase,
+                recoveryMarker: state.terminalConfirmationReceived
+                    ? MeasurementRecoveryMarker(
+                        sessionID: state.recoveryMarker.sessionID,
+                        lastStablePhase: .complete,
+                        replayRequired: false
+                    )
+                    : state.recoveryMarker,
                 terminalSummary: summary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -175,13 +188,16 @@ enum MeasurementSessionCoordinator {
             return MeasurementSessionState(
                 sessionID: state.sessionID,
                 feature: state.feature,
-                phase: .complete,
-                recoveryMarker: MeasurementRecoveryMarker(
-                    sessionID: state.recoveryMarker.sessionID,
-                    lastStablePhase: .complete,
-                    replayRequired: false
-                ),
+                phase: state.terminalSummary == nil ? state.phase : .complete,
+                recoveryMarker: state.terminalSummary == nil
+                    ? state.recoveryMarker
+                    : MeasurementRecoveryMarker(
+                        sessionID: state.recoveryMarker.sessionID,
+                        lastStablePhase: .complete,
+                        replayRequired: false
+                    ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: true,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -197,6 +213,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: replayRequired
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -212,6 +229,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: true
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: reasonCode,
                 cancellationReason: state.cancellationReason,
                 lastEventCode: event.code
@@ -227,6 +245,7 @@ enum MeasurementSessionCoordinator {
                     replayRequired: false
                 ),
                 terminalSummary: state.terminalSummary,
+                terminalConfirmationReceived: state.terminalConfirmationReceived,
                 failureReason: state.failureReason,
                 cancellationReason: reasonCode,
                 lastEventCode: event.code
