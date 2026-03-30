@@ -1,6 +1,7 @@
 package com.airhealth.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -69,5 +70,83 @@ class FeatureHubRouteStateTest {
         assertEquals(FeatureAction.SET_GOALS, actionRoute.action)
         assertEquals(ManagedAction.SET_GOALS, routeState.activeManagedAction())
         assertNull(routeState.lastBlockedActionAttempt)
+    }
+
+    @Test
+    fun activeEntitlementAllowsMeasurementFromFeatureHub() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
+        routeState.replaceEntitlementCacheState(
+            EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = true,
+                lastVerificationAttemptAtEpochMillis = 1_000L,
+            ),
+        )
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.MEASURE)
+
+        val route = routeState.route as FeatureHubRoute.Action
+        assertEquals(FeatureAction.MEASURE, route.action)
+        assertNull(routeState.lastBlockedActionAttempt)
+    }
+
+    @Test
+    fun temporaryAccessBlocksMeasurementButKeepsHistoryAvailable() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 2_100L })
+        routeState.replaceEntitlementCacheState(
+            EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.TRIAL_ACTIVE,
+                    verifiedAtEpochMillis = 2_000L,
+                ),
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 2_050L,
+            ),
+        )
+
+        routeState.openFeature(FeatureKind.FAT_BURNING)
+        routeState.openAction(FeatureAction.MEASURE)
+
+        assertTrue(routeState.route is FeatureHubRoute.Feature)
+        assertEquals(
+            ActionLockReasonCode.TEMPORARY_ACCESS_RESTRICTION,
+            routeState.lastBlockedActionAttempt?.reasonCode,
+        )
+
+        routeState.openAction(FeatureAction.VIEW_HISTORY)
+
+        val route = routeState.route as FeatureHubRoute.Action
+        assertEquals(FeatureAction.VIEW_HISTORY, route.action)
+    }
+
+    @Test
+    fun verificationFailureWithoutCacheLeavesOnlyReadOnlyRoutesAvailable() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 5_000L })
+        routeState.replaceEntitlementCacheState(
+            EntitlementCacheState(
+                snapshot = null,
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 4_900L,
+            ),
+        )
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.GET_SUGGESTION)
+
+        assertTrue(routeState.route is FeatureHubRoute.Feature)
+        assertEquals(
+            ActionLockReasonCode.READ_ONLY_MODE_RESTRICTION,
+            routeState.lastBlockedActionAttempt?.reasonCode,
+        )
+        assertFalse(routeState.effectiveEntitlement.canRequestLiveSuggestions)
+
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+
+        val route = routeState.route as FeatureHubRoute.Action
+        assertEquals(FeatureAction.CONSULT_PROFESSIONALS, route.action)
     }
 }

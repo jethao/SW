@@ -69,4 +69,25 @@ class EntitlementSurfaceStateTest {
         assertTrue(suggestionState.detail?.contains("Read-only mode") == true)
         assertTrue(featureActionSurfaceState(FeatureAction.CONSULT_PROFESSIONALS, effective).isEnabled)
     }
+
+    @Test
+    fun missingCacheShowsReadOnlyBannerAndBlocksLiveOnlyActions() {
+        val effective = EntitlementEvaluator.deriveEffectiveState(
+            state = EntitlementCacheState(
+                snapshot = null,
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 9_000L,
+            ),
+            nowEpochMillis = 9_100L,
+        )
+
+        val banner = entitlementBannerState(effective)
+        assertNotNull(banner)
+        assertEquals("Read-only mode", banner?.title)
+
+        val measureState = featureActionSurfaceState(FeatureAction.MEASURE, effective)
+        assertFalse(measureState.isEnabled)
+        assertTrue(measureState.detail?.contains("Read-only mode") == true)
+        assertTrue(featureActionSurfaceState(FeatureAction.VIEW_HISTORY, effective).isEnabled)
+    }
 }
