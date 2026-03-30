@@ -161,6 +161,7 @@ struct AppShellView: View {
             if action == .setGoals {
                 FeatureGoalEditorView(
                     context: context,
+                    entitlement: store.effectiveEntitlement,
                     currentGoal: store.goal(for: context.feature),
                     templates: goalTemplates(for: context.feature),
                     onApplyTemplate: { template in
@@ -179,6 +180,7 @@ struct AppShellView: View {
             } else if action == .getSuggestion {
                 FeatureSuggestionView(
                     context: context,
+                    entitlement: store.effectiveEntitlement,
                     currentGoal: store.goal(for: context.feature),
                     currentSuggestion: store.suggestion(for: context.feature),
                     onRefreshFeatureSuggestion: {
@@ -589,6 +591,7 @@ private struct FeatureActionsView: View {
 
 private struct FeatureSuggestionView: View {
     let context: SelectedFeatureContext
+    let entitlement: EffectiveEntitlement
     let currentGoal: FeatureGoal?
     let currentSuggestion: FeatureSuggestion?
     let onRefreshFeatureSuggestion: () -> Void
@@ -597,6 +600,11 @@ private struct FeatureSuggestionView: View {
     let onReturnHome: () -> Void
 
     var body: some View {
+        let suggestionSurface = suggestionRefreshSurfaceState(
+            entitlement: entitlement,
+            hasCachedSuggestion: currentSuggestion != nil
+        )
+
         VStack(alignment: .leading, spacing: 16) {
             Text("Suggestion planner")
                 .font(.title3.bold())
@@ -608,6 +616,10 @@ private struct FeatureSuggestionView: View {
             Text("Return route ID: \(context.lastVisitedRouteID)")
                 .font(.footnote.monospaced())
                 .foregroundStyle(.secondary)
+
+            if let banner = entitlementBannerState(entitlement) {
+                EntitlementBannerView(banner: banner)
+            }
 
             if let currentGoal {
                 Text("Goal context")
@@ -631,7 +643,17 @@ private struct FeatureSuggestionView: View {
                     .font(.footnote.monospaced())
                     .foregroundStyle(.secondary)
             } else {
-                Text("No cached suggestion yet for \(context.feature.title). Refresh one now and it will stay available when you re-enter this feature.")
+                Text(
+                    "No cached suggestion yet for \(context.feature.title). " +
+                    (suggestionSurface.canRefreshSuggestion
+                        ? "Refresh one now and it will stay available when you re-enter this feature."
+                        : "A cached suggestion will appear here once active entitlement allows the first refresh.")
+                )
+                    .foregroundStyle(.secondary)
+            }
+
+            if let detail = suggestionSurface.detail {
+                Text(detail)
                     .foregroundStyle(.secondary)
             }
 
@@ -639,11 +661,15 @@ private struct FeatureSuggestionView: View {
                 onRefreshFeatureSuggestion()
             }
             .buttonStyle(.borderedProminent)
+            .disabled(!suggestionSurface.canRefreshSuggestion)
+            .opacity(suggestionSurface.canRefreshSuggestion ? 1 : 0.58)
 
             Button("Refresh Result Follow-up") {
                 onRefreshResultSuggestion()
             }
             .buttonStyle(.bordered)
+            .disabled(!suggestionSurface.canRefreshSuggestion)
+            .opacity(suggestionSurface.canRefreshSuggestion ? 1 : 0.58)
 
             Button("Return To \(context.feature.title)") {
                 onReturnToFeature()
@@ -663,6 +689,7 @@ private struct FeatureSuggestionView: View {
 
 private struct FeatureGoalEditorView: View {
     let context: SelectedFeatureContext
+    let entitlement: EffectiveEntitlement
     let currentGoal: FeatureGoal?
     let templates: [GoalDraftTemplate]
     let onApplyTemplate: (GoalDraftTemplate) -> Void
@@ -671,6 +698,8 @@ private struct FeatureGoalEditorView: View {
     let onReturnHome: () -> Void
 
     var body: some View {
+        let goalSurface = goalEditorSurfaceState(entitlement: entitlement)
+
         VStack(alignment: .leading, spacing: 16) {
             Text("Goal planner")
                 .font(.title3.bold())
@@ -682,6 +711,15 @@ private struct FeatureGoalEditorView: View {
             Text("Return route ID: \(context.lastVisitedRouteID)")
                 .font(.footnote.monospaced())
                 .foregroundStyle(.secondary)
+
+            if let banner = entitlementBannerState(entitlement) {
+                EntitlementBannerView(banner: banner)
+            }
+
+            if let detail = goalSurface.detail {
+                Text(detail)
+                    .foregroundStyle(.secondary)
+            }
 
             if let currentGoal {
                 Text("Current cached goal")
@@ -697,8 +735,15 @@ private struct FeatureGoalEditorView: View {
                     onClearGoal()
                 }
                 .buttonStyle(.bordered)
+                .disabled(!goalSurface.canEditGoal)
+                .opacity(goalSurface.canEditGoal ? 1 : 0.58)
             } else {
-                Text("No cached goal yet for \(context.feature.title). Choose a draft below to create one locally.")
+                Text(
+                    "No cached goal yet for \(context.feature.title). " +
+                    (goalSurface.canEditGoal
+                        ? "Choose a draft below to create one locally."
+                        : "Goal editing is paused until active entitlement returns.")
+                )
                     .foregroundStyle(.secondary)
             }
 
@@ -710,6 +755,8 @@ private struct FeatureGoalEditorView: View {
                     onApplyTemplate(template)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!goalSurface.canEditGoal)
+                .opacity(goalSurface.canEditGoal ? 1 : 0.58)
 
                 Text(template.summary)
                     .foregroundStyle(.secondary)
@@ -825,6 +872,16 @@ private struct FeatureActionSurfaceState {
     let detail: String?
 }
 
+private struct GoalEditorSurfaceState {
+    let canEditGoal: Bool
+    let detail: String?
+}
+
+private struct SuggestionRefreshSurfaceState {
+    let canRefreshSuggestion: Bool
+    let detail: String?
+}
+
 private struct EntitlementBannerView: View {
     let banner: EntitlementBannerState
 
@@ -904,5 +961,54 @@ private func featureActionSurfaceState(
     return FeatureActionSurfaceState(
         isEnabled: false,
         detail: detail
+    )
+}
+
+private func goalEditorSurfaceState(
+    entitlement: EffectiveEntitlement
+) -> GoalEditorSurfaceState {
+    let actionSurface = featureActionSurfaceState(
+        action: .setGoals,
+        entitlement: entitlement
+    )
+    return GoalEditorSurfaceState(
+        canEditGoal: actionSurface.isEnabled,
+        detail: actionSurface.detail
+    )
+}
+
+private func suggestionRefreshSurfaceState(
+    entitlement: EffectiveEntitlement,
+    hasCachedSuggestion: Bool
+) -> SuggestionRefreshSurfaceState {
+    let actionSurface = featureActionSurfaceState(
+        action: .getSuggestion,
+        entitlement: entitlement
+    )
+
+    if actionSurface.isEnabled {
+        return SuggestionRefreshSurfaceState(
+            canRefreshSuggestion: true,
+            detail: nil
+        )
+    }
+
+    let detail: String?
+    switch (entitlement.mode, hasCachedSuggestion) {
+    case (.active, _):
+        detail = nil
+    case (.temporaryAccess, true):
+        detail = "Live suggestion refresh is paused during Temporary access. Your cached suggestion stays available until verification recovers."
+    case (.temporaryAccess, false):
+        detail = "No cached suggestion is available yet. Live suggestion refresh is paused during Temporary access."
+    case (.readOnly, true):
+        detail = "Live suggestion refresh is unavailable in Read-only mode. Your cached suggestion stays available until active entitlement returns."
+    case (.readOnly, false):
+        detail = "No cached suggestion is available yet. Live suggestion refresh is unavailable in Read-only mode."
+    }
+
+    return SuggestionRefreshSurfaceState(
+        canRefreshSuggestion: false,
+        detail: detail ?? actionSurface.detail
     )
 }

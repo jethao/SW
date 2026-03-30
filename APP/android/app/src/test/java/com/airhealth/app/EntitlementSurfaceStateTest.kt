@@ -90,4 +90,59 @@ class EntitlementSurfaceStateTest {
         assertTrue(measureState.detail?.contains("Read-only mode") == true)
         assertTrue(featureActionSurfaceState(FeatureAction.VIEW_HISTORY, effective).isEnabled)
     }
+
+    @Test
+    fun goalEditorSurfaceTracksEditableStateAcrossEntitlementModes() {
+        val temporaryAccess = EntitlementEvaluator.deriveEffectiveState(
+            state = EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 1_100L,
+            ),
+            nowEpochMillis = 1_200L,
+        )
+        val temporaryGoalState = goalEditorSurfaceState(temporaryAccess)
+        assertFalse(temporaryGoalState.canEditGoal)
+        assertTrue(temporaryGoalState.detail?.contains("Temporary access") == true)
+
+        val active = EntitlementEvaluator.deriveEffectiveState(
+            state = scaffoldBootstrapEntitlementState(nowEpochMillis = 500L),
+            nowEpochMillis = 600L,
+        )
+        val activeGoalState = goalEditorSurfaceState(active)
+        assertTrue(activeGoalState.canEditGoal)
+        assertNull(activeGoalState.detail)
+    }
+
+    @Test
+    fun suggestionRefreshSurfaceKeepsCachedFallbackVisible() {
+        val temporaryAccess = EntitlementEvaluator.deriveEffectiveState(
+            state = EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 1_050L,
+            ),
+            nowEpochMillis = 1_200L,
+        )
+
+        val cachedFallback = suggestionRefreshSurfaceState(
+            entitlement = temporaryAccess,
+            hasCachedSuggestion = true,
+        )
+        assertFalse(cachedFallback.canRefreshSuggestion)
+        assertTrue(cachedFallback.detail?.contains("cached suggestion stays available") == true)
+
+        val emptyFallback = suggestionRefreshSurfaceState(
+            entitlement = temporaryAccess,
+            hasCachedSuggestion = false,
+        )
+        assertFalse(emptyFallback.canRefreshSuggestion)
+        assertTrue(emptyFallback.detail?.contains("No cached suggestion is available yet") == true)
+    }
 }

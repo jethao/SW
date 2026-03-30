@@ -10,6 +10,16 @@ data class FeatureActionSurfaceState(
     val detail: String? = null,
 )
 
+data class GoalEditorSurfaceState(
+    val canEditGoal: Boolean,
+    val detail: String? = null,
+)
+
+data class SuggestionRefreshSurfaceState(
+    val canRefreshSuggestion: Boolean,
+    val detail: String? = null,
+)
+
 fun entitlementBannerState(entitlement: EffectiveEntitlement): EntitlementBannerState? {
     return when (entitlement.mode) {
         EffectiveEntitlementMode.ACTIVE -> null
@@ -73,5 +83,58 @@ fun featureActionSurfaceState(
     return FeatureActionSurfaceState(
         isEnabled = false,
         detail = detail,
+    )
+}
+
+fun goalEditorSurfaceState(entitlement: EffectiveEntitlement): GoalEditorSurfaceState {
+    val actionSurface = featureActionSurfaceState(
+        action = FeatureAction.SET_GOALS,
+        entitlement = entitlement,
+    )
+    return GoalEditorSurfaceState(
+        canEditGoal = actionSurface.isEnabled,
+        detail = actionSurface.detail,
+    )
+}
+
+fun suggestionRefreshSurfaceState(
+    entitlement: EffectiveEntitlement,
+    hasCachedSuggestion: Boolean,
+): SuggestionRefreshSurfaceState {
+    val actionSurface = featureActionSurfaceState(
+        action = FeatureAction.GET_SUGGESTION,
+        entitlement = entitlement,
+    )
+
+    if (actionSurface.isEnabled) {
+        return SuggestionRefreshSurfaceState(
+            canRefreshSuggestion = true,
+            detail = null,
+        )
+    }
+
+    val fallbackDetail = when {
+        hasCachedSuggestion -> when (entitlement.mode) {
+            EffectiveEntitlementMode.ACTIVE -> null
+            EffectiveEntitlementMode.TEMPORARY_ACCESS ->
+                "Live suggestion refresh is paused during Temporary access. Your cached suggestion stays available until verification recovers."
+
+            EffectiveEntitlementMode.READ_ONLY ->
+                "Live suggestion refresh is unavailable in Read-only mode. Your cached suggestion stays available until active entitlement returns."
+        }
+
+        else -> when (entitlement.mode) {
+            EffectiveEntitlementMode.ACTIVE -> null
+            EffectiveEntitlementMode.TEMPORARY_ACCESS ->
+                "No cached suggestion is available yet. Live suggestion refresh is paused during Temporary access."
+
+            EffectiveEntitlementMode.READ_ONLY ->
+                "No cached suggestion is available yet. Live suggestion refresh is unavailable in Read-only mode."
+        }
+    }
+
+    return SuggestionRefreshSurfaceState(
+        canRefreshSuggestion = false,
+        detail = fallbackDetail ?: actionSurface.detail,
     )
 }
