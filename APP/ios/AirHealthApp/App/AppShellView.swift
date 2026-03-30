@@ -148,6 +148,7 @@ struct AppShellView: View {
                 context: context,
                 entitlement: store.effectiveEntitlement,
                 currentGoal: store.goal(for: context.feature),
+                currentSuggestion: store.suggestion(for: context.feature),
                 blockedAttempt: store.lastBlockedActionAttempt,
                 onSelectAction: { action in
                     store.openAction(action)
@@ -167,6 +168,30 @@ struct AppShellView: View {
                     },
                     onClearGoal: {
                         store.clearGoal(feature: context.feature)
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
+            } else if action == .getSuggestion {
+                FeatureSuggestionView(
+                    context: context,
+                    currentGoal: store.goal(for: context.feature),
+                    currentSuggestion: store.suggestion(for: context.feature),
+                    onRefreshFeatureSuggestion: {
+                        store.refreshSuggestion(
+                            feature: context.feature,
+                            entryPoint: .featureHub
+                        )
+                    },
+                    onRefreshResultSuggestion: {
+                        store.refreshSuggestion(
+                            feature: context.feature,
+                            entryPoint: .resultContext
+                        )
                     },
                     onReturnToFeature: {
                         store.returnToFeature()
@@ -476,6 +501,7 @@ private struct FeatureActionsView: View {
     let context: SelectedFeatureContext
     let entitlement: EffectiveEntitlement
     let currentGoal: FeatureGoal?
+    let currentSuggestion: FeatureSuggestion?
     let blockedAttempt: BlockedActionAttempt?
     let onSelectAction: (FeatureAction) -> Void
     let onReturnHome: () -> Void
@@ -522,6 +548,18 @@ private struct FeatureActionsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if let currentSuggestion {
+                Text("Cached suggestion")
+                    .font(.headline)
+                Text(currentSuggestion.headline)
+                    .foregroundStyle(.secondary)
+                Text(currentSuggestion.body)
+                    .foregroundStyle(.secondary)
+                Text("Source: \(currentSuggestion.entryPoint.rawValue) • Refresh \(currentSuggestion.refreshRevision)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
             ForEach(FeatureAction.allCases) { action in
                 let actionSurface = featureActionSurfaceState(action: action, entitlement: entitlement)
                 Button(action.title) {
@@ -539,6 +577,80 @@ private struct FeatureActionsView: View {
             }
 
             Button("Back To Home") {
+                onReturnHome()
+            }
+            .buttonStyle(.bordered)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct FeatureSuggestionView: View {
+    let context: SelectedFeatureContext
+    let currentGoal: FeatureGoal?
+    let currentSuggestion: FeatureSuggestion?
+    let onRefreshFeatureSuggestion: () -> Void
+    let onRefreshResultSuggestion: () -> Void
+    let onReturnToFeature: () -> Void
+    let onReturnHome: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Suggestion planner")
+                .font(.title3.bold())
+
+            Text("Refresh a feature-specific suggestion, cache it locally for reopen, and keep it tied to the current feature context.")
+                .foregroundStyle(.secondary)
+
+            Text("Selected feature: \(context.feature.title)")
+            Text("Return route ID: \(context.lastVisitedRouteID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            if let currentGoal {
+                Text("Goal context")
+                    .font(.headline)
+                Text(currentGoal.summary)
+                    .foregroundStyle(.secondary)
+                Text("Target: \(currentGoal.targetLabel) • \(currentGoal.cadenceLabel)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let currentSuggestion {
+                Text("Cached suggestion")
+                    .font(.headline)
+                Text(currentSuggestion.headline)
+                    .foregroundStyle(.secondary)
+                Text(currentSuggestion.body)
+                    .foregroundStyle(.secondary)
+                Text("Support track: \(currentSuggestion.supportingActionLabel)")
+                Text("Source: \(currentSuggestion.entryPoint.rawValue) • Refresh \(currentSuggestion.refreshRevision)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("No cached suggestion yet for \(context.feature.title). Refresh one now and it will stay available when you re-enter this feature.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Refresh From Feature Hub") {
+                onRefreshFeatureSuggestion()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Refresh Result Follow-up") {
+                onRefreshResultSuggestion()
+            }
+            .buttonStyle(.bordered)
+
+            Button("Return To \(context.feature.title)") {
+                onReturnToFeature()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Return To Home") {
                 onReturnHome()
             }
             .buttonStyle(.bordered)

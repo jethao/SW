@@ -61,6 +61,8 @@ class FeatureHubRouteState(
     private var entitlementCacheState: EntitlementCacheState = EntitlementCacheState()
     var goalCacheState: GoalCacheState = GoalCacheState()
         private set
+    var suggestionCacheState: SuggestionCacheState = SuggestionCacheState()
+        private set
 
     var route: FeatureHubRoute = initialRoute
         private set
@@ -84,6 +86,10 @@ class FeatureHubRouteState(
         return goalCacheState.goalFor(feature)
     }
 
+    fun suggestionFor(feature: FeatureKind): FeatureSuggestion? {
+        return suggestionCacheState.suggestionFor(feature)
+    }
+
     fun applyGoalTemplate(template: GoalDraftTemplate) {
         goalCacheState = goalCacheState.upsert(
             feature = template.feature,
@@ -96,6 +102,21 @@ class FeatureHubRouteState(
 
     fun clearGoal(feature: FeatureKind) {
         goalCacheState = goalCacheState.remove(feature)
+    }
+
+    fun refreshSuggestion(
+        feature: FeatureKind,
+        entryPoint: SuggestionEntryPoint,
+    ) {
+        suggestionCacheState = suggestionCacheState.refresh(
+            feature = feature,
+            entryPoint = entryPoint,
+            templates = suggestionTemplatesFor(
+                feature = feature,
+                goal = goalFor(feature),
+            ),
+            cachedAtEpochMillis = currentTimeMillis(),
+        )
     }
 
     fun openFeature(feature: FeatureKind) {

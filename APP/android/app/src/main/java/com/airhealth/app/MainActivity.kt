@@ -347,6 +347,13 @@ class MainActivity : AppCompatActivity() {
                 addView(caption("Local revision ${goal.revision}"))
             }
 
+            routeState.suggestionFor(context.feature)?.let { suggestion ->
+                addView(headline("Cached suggestion"))
+                addView(bodyCopy(suggestion.headline))
+                addView(bodyCopy(suggestion.body))
+                addView(caption("Source: ${suggestion.entryPoint.wireValue} • Refresh ${suggestion.refreshRevision}"))
+            }
+
             FeatureAction.entries.forEach { action ->
                 val actionSurface = featureActionSurfaceState(action, entitlement)
                 addView(
@@ -378,6 +385,9 @@ class MainActivity : AppCompatActivity() {
     ): View {
         if (action == FeatureAction.SET_GOALS) {
             return buildGoalActionView(context)
+        }
+        if (action == FeatureAction.GET_SUGGESTION) {
+            return buildSuggestionActionView(context)
         }
 
         title = action.title
@@ -486,6 +496,70 @@ class MainActivity : AppCompatActivity() {
                 addView(bodyCopy(template.summary))
                 addView(caption("Target: ${template.targetLabel} • ${template.cadenceLabel}"))
             }
+
+            addView(
+                actionButton("Return To ${context.feature.title}") {
+                    routeState.returnToFeature()
+                    renderRoute()
+                }
+            )
+            addView(
+                secondaryButton("Return To Home") {
+                    routeState.returnHome()
+                    renderRoute()
+                }
+            )
+        }
+    }
+
+    private fun buildSuggestionActionView(context: SelectedFeatureContext): View {
+        title = FeatureAction.GET_SUGGESTION.title
+
+        return verticalLayout().apply {
+            addView(headline("Suggestion planner"))
+            addView(
+                bodyCopy(
+                    "Refresh a feature-specific suggestion, cache it locally for reopen, and keep it tied to the current feature context."
+                )
+            )
+            addView(bodyCopy("Selected feature: ${context.feature.title}"))
+            addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+
+            routeState.goalFor(context.feature)?.let { goal ->
+                addView(headline("Goal context"))
+                addView(bodyCopy(goal.summary))
+                addView(caption("Target: ${goal.targetLabel} • ${goal.cadenceLabel}"))
+            }
+
+            val suggestion = routeState.suggestionFor(context.feature)
+            if (suggestion != null) {
+                addView(headline("Cached suggestion"))
+                addView(bodyCopy(suggestion.headline))
+                addView(bodyCopy(suggestion.body))
+                addView(caption("Support track: ${suggestion.supportingActionLabel}"))
+                addView(caption("Source: ${suggestion.entryPoint.wireValue} • Refresh ${suggestion.refreshRevision}"))
+            } else {
+                addView(bodyCopy("No cached suggestion yet for ${context.feature.title}. Refresh one now and it will stay available when you re-enter this feature."))
+            }
+
+            addView(
+                actionButton("Refresh From Feature Hub") {
+                    routeState.refreshSuggestion(
+                        feature = context.feature,
+                        entryPoint = SuggestionEntryPoint.FEATURE_HUB,
+                    )
+                    renderRoute()
+                }
+            )
+            addView(
+                secondaryButton("Refresh Result Follow-up") {
+                    routeState.refreshSuggestion(
+                        feature = context.feature,
+                        entryPoint = SuggestionEntryPoint.RESULT_CONTEXT,
+                    )
+                    renderRoute()
+                }
+            )
 
             addView(
                 actionButton("Return To ${context.feature.title}") {

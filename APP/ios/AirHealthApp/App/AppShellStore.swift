@@ -178,6 +178,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var pairingRecoveryEvents: [PairingRecoveryEvent] = []
     @Published private(set) var entitlementCacheState: EntitlementCacheState
     @Published private(set) var goalCacheState = GoalCacheState()
+    @Published private(set) var suggestionCacheState = SuggestionCacheState()
 
     var lastBlockedActionAttempt: BlockedActionAttempt? {
         actionLockState.blockedAttempt
@@ -203,6 +204,10 @@ final class AppShellStore: ObservableObject {
         goalCacheState.goal(for: feature)
     }
 
+    func suggestion(for feature: FeatureKind) -> FeatureSuggestion? {
+        suggestionCacheState.suggestion(for: feature)
+    }
+
     func replaceEntitlementCacheState(_ state: EntitlementCacheState) {
         entitlementCacheState = state
     }
@@ -219,6 +224,21 @@ final class AppShellStore: ObservableObject {
 
     func clearGoal(feature: FeatureKind) {
         goalCacheState = goalCacheState.remove(feature: feature)
+    }
+
+    func refreshSuggestion(
+        feature: FeatureKind,
+        entryPoint: SuggestionEntryPoint
+    ) {
+        suggestionCacheState = suggestionCacheState.refresh(
+            feature: feature,
+            entryPoint: entryPoint,
+            templates: suggestionTemplates(
+                for: feature,
+                goal: goal(for: feature)
+            ),
+            cachedAtEpochMillis: nowEpochMillis()
+        )
     }
 
     func openFeature(_ feature: FeatureKind) {
