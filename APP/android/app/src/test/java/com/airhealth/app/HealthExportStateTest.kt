@@ -44,13 +44,20 @@ class HealthExportStateTest {
         val routeState = FeatureHubRouteState(currentTimeMillis = { 20_000L })
 
         routeState.recordDemoCompletedSession(FeatureKind.ORAL_HEALTH)
+        routeState.setExportPermission(
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+            permissionState = HealthExportPermissionState.GRANTED,
+        )
         val payload = routeState.exportLatestCompletedSummary(
             feature = FeatureKind.ORAL_HEALTH,
             platform = HealthExportPlatform.HEALTH_CONNECT,
         )
 
         assertTrue(payload != null)
-        val surface = routeState.exportAuditSurfaceFor(FeatureKind.ORAL_HEALTH)
+        val surface = routeState.exportAuditSurfaceFor(
+            feature = FeatureKind.ORAL_HEALTH,
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+        )
         assertEquals("Exported", surface.latestStatusLabel)
         assertEquals("Health Connect", surface.latestPlatformTitle)
         assertTrue(surface.records.single().exportedResultToken.contains("result"))
@@ -69,9 +76,47 @@ class HealthExportStateTest {
             reasonCode = "health_connect_unavailable",
         )
 
-        val surface = routeState.exportAuditSurfaceFor(FeatureKind.FAT_BURNING)
+        val surface = routeState.exportAuditSurfaceFor(
+            feature = FeatureKind.FAT_BURNING,
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+        )
         assertEquals("Export failed", surface.latestStatusLabel)
         assertEquals("health_connect_unavailable", surface.latestFailureReason)
         assertEquals(beforeCount, routeState.sessionHistoryStoreState.records.size)
+    }
+
+    @Test
+    fun deniedPermissionCreatesExplicitRecoverableFailureAudit() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 40_000L })
+
+        routeState.recordDemoCompletedSession(FeatureKind.ORAL_HEALTH)
+        routeState.setExportPermission(
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+            permissionState = HealthExportPermissionState.DENIED,
+        )
+
+        val payload = routeState.exportLatestCompletedSummary(
+            feature = FeatureKind.ORAL_HEALTH,
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+        )
+
+        assertEquals(null, payload)
+        val deniedSurface = routeState.exportAuditSurfaceFor(
+            feature = FeatureKind.ORAL_HEALTH,
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+        )
+        assertEquals(HealthExportPermissionState.DENIED, deniedSurface.permissionState)
+        assertEquals("permission_denied", deniedSurface.latestFailureReason)
+
+        routeState.setExportPermission(
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+            permissionState = HealthExportPermissionState.GRANTED,
+        )
+        val retriedPayload = routeState.exportLatestCompletedSummary(
+            feature = FeatureKind.ORAL_HEALTH,
+            platform = HealthExportPlatform.HEALTH_CONNECT,
+        )
+
+        assertTrue(retriedPayload != null)
     }
 }

@@ -463,7 +463,11 @@ class MainActivity : AppCompatActivity() {
         val entitlement = routeState.effectiveEntitlement
         val syncProjection = routeState.syncQueueProjectionFor(context.feature)
         val activeJob = routeState.activeSyncJobFor(context.feature)
-        val exportAuditSurface = routeState.exportAuditSurfaceFor(context.feature)
+        val exportPlatform = HealthExportPlatform.HEALTH_CONNECT
+        val exportAuditSurface = routeState.exportAuditSurfaceFor(
+            feature = context.feature,
+            platform = exportPlatform,
+        )
 
         return verticalLayout().apply {
             addView(headline("History and progress"))
@@ -554,6 +558,10 @@ class MainActivity : AppCompatActivity() {
                     "Export the latest completed consumer-safe summary and keep an audit record for each success or failure attempt.",
                 ),
             )
+            addView(caption("Permission: ${exportAuditSurface.permissionState.wireValue}"))
+            if (exportAuditSurface.permissionState == HealthExportPermissionState.DENIED) {
+                addView(bodyCopy("${exportPlatform.title} permission is denied. Re-enable permission to retry export."))
+            }
             exportAuditSurface.latestStatusLabel?.let { statusLabel ->
                 addView(
                     caption(
@@ -565,10 +573,25 @@ class MainActivity : AppCompatActivity() {
                 addView(caption("Failure reason: $failureReason"))
             }
             addView(
-                actionButton("Export To Health Connect") {
+                actionButton("Allow ${exportPlatform.title}") {
+                    routeState.setExportPermission(exportPlatform, HealthExportPermissionState.GRANTED)
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton("Deny ${exportPlatform.title}") {
+                    routeState.setExportPermission(exportPlatform, HealthExportPermissionState.DENIED)
+                    renderRoute()
+                },
+            )
+            addView(
+                actionButton(
+                    "Export To ${exportPlatform.title}",
+                    enabled = exportAuditSurface.permissionState == HealthExportPermissionState.GRANTED,
+                ) {
                     routeState.exportLatestCompletedSummary(
                         feature = context.feature,
-                        platform = HealthExportPlatform.HEALTH_CONNECT,
+                        platform = exportPlatform,
                     )
                     renderRoute()
                 },
@@ -577,8 +600,8 @@ class MainActivity : AppCompatActivity() {
                 secondaryButton("Simulate Export Failure") {
                     routeState.failLatestCompletedSummaryExport(
                         feature = context.feature,
-                        platform = HealthExportPlatform.HEALTH_CONNECT,
-                        reasonCode = "health_connect_unavailable",
+                        platform = exportPlatform,
+                        reasonCode = "${exportPlatform.wireValue}_unavailable",
                     )
                     renderRoute()
                 },

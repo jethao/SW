@@ -19,6 +19,12 @@ enum ExportAuditStatus: String {
     case failed = "failed"
 }
 
+enum HealthExportPermissionState: String {
+    case unknown = "unknown"
+    case granted = "granted"
+    case denied = "denied"
+}
+
 struct CompletedSummaryExportPayload {
     let platform: HealthExportPlatform
     let sessionID: String
@@ -62,10 +68,30 @@ struct ExportAuditRecord {
 }
 
 struct ExportAuditSurfaceState {
+    let permissionState: HealthExportPermissionState
     let latestStatusLabel: String?
     let latestPlatformTitle: String?
     let latestFailureReason: String?
     let records: [ExportAuditRecord]
+}
+
+struct HealthExportPermissionStoreState {
+    let byPlatform: [HealthExportPlatform: HealthExportPermissionState]
+
+    init(byPlatform: [HealthExportPlatform: HealthExportPermissionState] = [:]) {
+        self.byPlatform = byPlatform
+    }
+
+    func permission(for platform: HealthExportPlatform) -> HealthExportPermissionState {
+        byPlatform[platform] ?? .unknown
+    }
+
+    func setPermission(
+        _ permissionState: HealthExportPermissionState,
+        for platform: HealthExportPlatform
+    ) -> HealthExportPermissionStoreState {
+        HealthExportPermissionStoreState(byPlatform: byPlatform.merging([platform: permissionState]) { _, new in new })
+    }
 }
 
 struct ExportAuditStoreState {
@@ -83,10 +109,14 @@ struct ExportAuditStoreState {
         records.first { $0.feature == feature }
     }
 
-    func surface(for feature: FeatureKind) -> ExportAuditSurfaceState {
+    func surface(
+        for feature: FeatureKind,
+        permissionState: HealthExportPermissionState
+    ) -> ExportAuditSurfaceState {
         let featureRecords = records.filter { $0.feature == feature }.sorted { $0.recordedAtEpochMillis > $1.recordedAtEpochMillis }
         let latest = featureRecords.first
         return ExportAuditSurfaceState(
+            permissionState: permissionState,
             latestStatusLabel: latest?.statusLabel,
             latestPlatformTitle: latest?.platform.title,
             latestFailureReason: latest?.failureReason,

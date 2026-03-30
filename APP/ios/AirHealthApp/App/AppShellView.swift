@@ -210,7 +210,7 @@ struct AppShellView: View {
                     fatSurface: store.sessionHistoryStoreState.fatHistorySurface(),
                     syncProjection: store.syncQueueProjection(for: context.feature),
                     activeSyncJob: store.activeSyncJob(for: context.feature),
-                    exportAuditSurface: store.exportAuditSurface(for: context.feature),
+                    exportAuditSurface: store.exportAuditSurface(for: context.feature, platform: .appleHealth),
                     onRecordCompletedSummary: {
                         store.recordDemoCompletedSession(for: context.feature)
                     },
@@ -239,6 +239,12 @@ struct AppShellView: View {
                             platform: .appleHealth,
                             reasonCode: "apple_health_unavailable"
                         )
+                    },
+                    onGrantExportPermission: {
+                        store.setExportPermission(.granted, for: .appleHealth)
+                    },
+                    onDenyExportPermission: {
+                        store.setExportPermission(.denied, for: .appleHealth)
                     },
                     onReturnToFeature: {
                         store.returnToFeature()
@@ -558,6 +564,8 @@ private struct FeatureHistoryView: View {
     let onMarkSyncFailure: () -> Void
     let onExportLatestSummary: () -> Void
     let onFailLatestExport: () -> Void
+    let onGrantExportPermission: () -> Void
+    let onDenyExportPermission: () -> Void
     let onReturnToFeature: () -> Void
     let onReturnHome: () -> Void
 
@@ -675,10 +683,27 @@ private struct FeatureHistoryView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            Text("Permission: \(exportAuditSurface.permissionState.rawValue)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+            if exportAuditSurface.permissionState == .denied {
+                Text("Apple Health permission is denied. Re-enable permission to retry export.")
+                    .foregroundStyle(.secondary)
+            }
+            Button("Allow Apple Health") {
+                onGrantExportPermission()
+            }
+            .buttonStyle(.bordered)
+            Button("Deny Apple Health") {
+                onDenyExportPermission()
+            }
+            .buttonStyle(.bordered)
             Button("Export To Apple Health") {
                 onExportLatestSummary()
             }
             .buttonStyle(.borderedProminent)
+            .disabled(exportAuditSurface.permissionState != .granted)
+            .opacity(exportAuditSurface.permissionState == .granted ? 1 : 0.58)
             Button("Simulate Export Failure") {
                 onFailLatestExport()
             }

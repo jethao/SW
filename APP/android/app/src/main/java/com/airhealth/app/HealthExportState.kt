@@ -15,6 +15,14 @@ enum class ExportAuditStatus(
     FAILED("failed"),
 }
 
+enum class HealthExportPermissionState(
+    val wireValue: String,
+) {
+    UNKNOWN("unknown"),
+    GRANTED("granted"),
+    DENIED("denied"),
+}
+
 data class CompletedSummaryExportPayload(
     val platform: HealthExportPlatform,
     val sessionId: String,
@@ -55,11 +63,27 @@ data class ExportAuditRecord(
 }
 
 data class ExportAuditSurfaceState(
+    val permissionState: HealthExportPermissionState,
     val latestStatusLabel: String?,
     val latestPlatformTitle: String?,
     val latestFailureReason: String?,
     val records: List<ExportAuditRecord>,
 )
+
+data class HealthExportPermissionStoreState(
+    val byPlatform: Map<HealthExportPlatform, HealthExportPermissionState> = emptyMap(),
+) {
+    fun permissionFor(platform: HealthExportPlatform): HealthExportPermissionState {
+        return byPlatform[platform] ?: HealthExportPermissionState.UNKNOWN
+    }
+
+    fun setPermission(
+        platform: HealthExportPlatform,
+        permissionState: HealthExportPermissionState,
+    ): HealthExportPermissionStoreState {
+        return copy(byPlatform = byPlatform + (platform to permissionState))
+    }
+}
 
 data class ExportAuditStoreState(
     val records: List<ExportAuditRecord> = emptyList(),
@@ -72,10 +96,14 @@ data class ExportAuditStoreState(
         return records.firstOrNull { it.feature == feature }
     }
 
-    fun surfaceFor(feature: FeatureKind): ExportAuditSurfaceState {
+    fun surfaceFor(
+        feature: FeatureKind,
+        permissionState: HealthExportPermissionState,
+    ): ExportAuditSurfaceState {
         val featureRecords = records.filter { it.feature == feature }.sortedByDescending { it.recordedAtEpochMillis }
         val latest = featureRecords.firstOrNull()
         return ExportAuditSurfaceState(
+            permissionState = permissionState,
             latestStatusLabel = latest?.statusLabel,
             latestPlatformTitle = latest?.platform?.title,
             latestFailureReason = latest?.failureReason,

@@ -70,6 +70,8 @@ class FeatureHubRouteState(
         private set
     var exportAuditStoreState: ExportAuditStoreState = ExportAuditStoreState()
         private set
+    var exportPermissionStoreState: HealthExportPermissionStoreState = HealthExportPermissionStoreState()
+        private set
 
     var route: FeatureHubRoute = initialRoute
         private set
@@ -109,8 +111,21 @@ class FeatureHubRouteState(
         return sessionSyncQueueState.activeJobFor(feature)
     }
 
-    fun exportAuditSurfaceFor(feature: FeatureKind): ExportAuditSurfaceState {
-        return exportAuditStoreState.surfaceFor(feature)
+    fun exportAuditSurfaceFor(
+        feature: FeatureKind,
+        platform: HealthExportPlatform,
+    ): ExportAuditSurfaceState {
+        return exportAuditStoreState.surfaceFor(
+            feature = feature,
+            permissionState = exportPermissionStoreState.permissionFor(platform),
+        )
+    }
+
+    fun setExportPermission(
+        platform: HealthExportPlatform,
+        permissionState: HealthExportPermissionState,
+    ) {
+        exportPermissionStoreState = exportPermissionStoreState.setPermission(platform, permissionState)
     }
 
     fun applyGoalTemplate(template: GoalDraftTemplate) {
@@ -441,6 +456,22 @@ class FeatureHubRouteState(
             .filter { it.feature == feature }
             .maxByOrNull { it.recordedAtEpochMillis }
             ?: return null
+
+        if (exportPermissionStoreState.permissionFor(platform) != HealthExportPermissionState.GRANTED) {
+            exportAuditStoreState = exportAuditStoreState.append(
+                ExportAuditRecord(
+                    auditId = "${platform.wireValue}:${latestRecord.sessionId}:${currentTimeMillis()}",
+                    feature = feature,
+                    sessionId = latestRecord.sessionId,
+                    platform = platform,
+                    status = ExportAuditStatus.FAILED,
+                    recordedAtEpochMillis = currentTimeMillis(),
+                    exportedResultToken = latestRecord.resultToken,
+                    failureReason = "permission_denied",
+                ),
+            )
+            return null
+        }
 
         val payload = HealthExportAdapter.payloadFor(
             record = latestRecord,
