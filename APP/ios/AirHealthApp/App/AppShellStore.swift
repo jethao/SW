@@ -181,6 +181,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
     @Published private(set) var sessionHistoryStoreState = SessionHistoryStoreState()
     @Published private(set) var sessionSyncQueueState = SessionSyncQueueState()
+    @Published private(set) var exportAuditStoreState = ExportAuditStoreState()
 
     private var sampleSessionOrdinal: Int64 = 0
 
@@ -224,6 +225,10 @@ final class AppShellStore: ObservableObject {
         sessionSyncQueueState.activeJob(for: feature)
     }
 
+    func exportAuditSurface(for feature: FeatureKind) -> ExportAuditSurfaceState {
+        exportAuditStoreState.surface(for: feature)
+    }
+
     func replaceEntitlementCacheState(_ state: EntitlementCacheState) {
         entitlementCacheState = state
     }
@@ -265,6 +270,57 @@ final class AppShellStore: ObservableObject {
             sessionID: sessionID,
             nowEpochMillis: nowEpochMillis(),
             reasonCode: reasonCode
+        )
+    }
+
+    func exportLatestCompletedSummary(
+        for feature: FeatureKind,
+        platform: HealthExportPlatform
+    ) -> CompletedSummaryExportPayload? {
+        guard let latestRecord = sessionHistoryStoreState.records
+            .filter({ $0.feature == feature })
+            .max(by: { $0.recordedAtEpochMillis < $1.recordedAtEpochMillis }) else {
+            return nil
+        }
+
+        let payload = HealthExportAdapter.payloadFor(record: latestRecord, platform: platform)
+        exportAuditStoreState = exportAuditStoreState.append(
+            ExportAuditRecord(
+                auditID: "\(platform.rawValue):\(latestRecord.sessionID):\(nowEpochMillis())",
+                feature: feature,
+                sessionID: latestRecord.sessionID,
+                platform: platform,
+                status: .succeeded,
+                recordedAtEpochMillis: nowEpochMillis(),
+                exportedResultToken: latestRecord.resultToken,
+                failureReason: nil
+            )
+        )
+        return payload
+    }
+
+    func failLatestCompletedSummaryExport(
+        for feature: FeatureKind,
+        platform: HealthExportPlatform,
+        reasonCode: String
+    ) {
+        guard let latestRecord = sessionHistoryStoreState.records
+            .filter({ $0.feature == feature })
+            .max(by: { $0.recordedAtEpochMillis < $1.recordedAtEpochMillis }) else {
+            return
+        }
+
+        exportAuditStoreState = exportAuditStoreState.append(
+            ExportAuditRecord(
+                auditID: "\(platform.rawValue):\(latestRecord.sessionID):\(nowEpochMillis())",
+                feature: feature,
+                sessionID: latestRecord.sessionID,
+                platform: platform,
+                status: .failed,
+                recordedAtEpochMillis: nowEpochMillis(),
+                exportedResultToken: latestRecord.resultToken,
+                failureReason: reasonCode
+            )
         )
     }
 

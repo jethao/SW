@@ -463,6 +463,7 @@ class MainActivity : AppCompatActivity() {
         val entitlement = routeState.effectiveEntitlement
         val syncProjection = routeState.syncQueueProjectionFor(context.feature)
         val activeJob = routeState.activeSyncJobFor(context.feature)
+        val exportAuditSurface = routeState.exportAuditSurfaceFor(context.feature)
 
         return verticalLayout().apply {
             addView(headline("History and progress"))
@@ -545,6 +546,46 @@ class MainActivity : AppCompatActivity() {
                         renderRoute()
                     },
                 )
+            }
+
+            addView(headline("Health export"))
+            addView(
+                bodyCopy(
+                    "Export the latest completed consumer-safe summary and keep an audit record for each success or failure attempt.",
+                ),
+            )
+            exportAuditSurface.latestStatusLabel?.let { statusLabel ->
+                addView(
+                    caption(
+                        "Latest export: $statusLabel via ${exportAuditSurface.latestPlatformTitle ?: "health platform"}",
+                    ),
+                )
+            }
+            exportAuditSurface.latestFailureReason?.let { failureReason ->
+                addView(caption("Failure reason: $failureReason"))
+            }
+            addView(
+                actionButton("Export To Health Connect") {
+                    routeState.exportLatestCompletedSummary(
+                        feature = context.feature,
+                        platform = HealthExportPlatform.HEALTH_CONNECT,
+                    )
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton("Simulate Export Failure") {
+                    routeState.failLatestCompletedSummaryExport(
+                        feature = context.feature,
+                        platform = HealthExportPlatform.HEALTH_CONNECT,
+                        reasonCode = "health_connect_unavailable",
+                    )
+                    renderRoute()
+                },
+            )
+            exportAuditSurface.records.take(3).forEach { record ->
+                addView(bodyCopy("${record.platform.title}: ${record.statusLabel}"))
+                addView(caption("Session ${record.sessionId} • token ${record.exportedResultToken}"))
             }
 
             addView(

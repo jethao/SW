@@ -68,6 +68,8 @@ class FeatureHubRouteState(
         private set
     var sessionSyncQueueState: SessionSyncQueueState = SessionSyncQueueState()
         private set
+    var exportAuditStoreState: ExportAuditStoreState = ExportAuditStoreState()
+        private set
 
     var route: FeatureHubRoute = initialRoute
         private set
@@ -105,6 +107,10 @@ class FeatureHubRouteState(
 
     fun activeSyncJobFor(feature: FeatureKind): PersistedSessionSyncJob? {
         return sessionSyncQueueState.activeJobFor(feature)
+    }
+
+    fun exportAuditSurfaceFor(feature: FeatureKind): ExportAuditSurfaceState {
+        return exportAuditStoreState.surfaceFor(feature)
     }
 
     fun applyGoalTemplate(template: GoalDraftTemplate) {
@@ -424,6 +430,58 @@ class FeatureHubRouteState(
             sessionId = sessionId,
             nowEpochMillis = currentTimeMillis(),
             reasonCode = reasonCode,
+        )
+    }
+
+    fun exportLatestCompletedSummary(
+        feature: FeatureKind,
+        platform: HealthExportPlatform,
+    ): CompletedSummaryExportPayload? {
+        val latestRecord = sessionHistoryStoreState.records
+            .filter { it.feature == feature }
+            .maxByOrNull { it.recordedAtEpochMillis }
+            ?: return null
+
+        val payload = HealthExportAdapter.payloadFor(
+            record = latestRecord,
+            platform = platform,
+        )
+        exportAuditStoreState = exportAuditStoreState.append(
+            ExportAuditRecord(
+                auditId = "${platform.wireValue}:${latestRecord.sessionId}:${currentTimeMillis()}",
+                feature = feature,
+                sessionId = latestRecord.sessionId,
+                platform = platform,
+                status = ExportAuditStatus.SUCCEEDED,
+                recordedAtEpochMillis = currentTimeMillis(),
+                exportedResultToken = latestRecord.resultToken,
+                failureReason = null,
+            ),
+        )
+        return payload
+    }
+
+    fun failLatestCompletedSummaryExport(
+        feature: FeatureKind,
+        platform: HealthExportPlatform,
+        reasonCode: String,
+    ) {
+        val latestRecord = sessionHistoryStoreState.records
+            .filter { it.feature == feature }
+            .maxByOrNull { it.recordedAtEpochMillis }
+            ?: return
+
+        exportAuditStoreState = exportAuditStoreState.append(
+            ExportAuditRecord(
+                auditId = "${platform.wireValue}:${latestRecord.sessionId}:${currentTimeMillis()}",
+                feature = feature,
+                sessionId = latestRecord.sessionId,
+                platform = platform,
+                status = ExportAuditStatus.FAILED,
+                recordedAtEpochMillis = currentTimeMillis(),
+                exportedResultToken = latestRecord.resultToken,
+                failureReason = reasonCode,
+            ),
         )
     }
 
