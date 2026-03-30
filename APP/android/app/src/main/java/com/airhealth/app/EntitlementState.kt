@@ -5,7 +5,7 @@ private const val ENTITLEMENT_FRESHNESS_WINDOW_MS = 24L * 60L * 60L * 1000L
 enum class VerifiedEntitlementState {
     TRIAL_ACTIVE,
     PAID_ACTIVE,
-    EXPIRED_READ_ONLY,
+    EXPIRED,
 }
 
 enum class EntitlementFreshness {
@@ -91,19 +91,30 @@ object EntitlementEvaluator {
         val snapshot = state.snapshot
             ?: return readOnlyEntitlement(EntitlementFreshness.MISSING_CACHE)
 
+        val cacheAgeMillis = (nowEpochMillis - snapshot.verifiedAtEpochMillis).coerceAtLeast(0L)
+        val isWithinFreshnessWindow = cacheAgeMillis <= ENTITLEMENT_FRESHNESS_WINDOW_MS
+        val isActiveSourceState = snapshot.sourceState == VerifiedEntitlementState.TRIAL_ACTIVE ||
+            snapshot.sourceState == VerifiedEntitlementState.PAID_ACTIVE
+
         if (state.isBackendReachable) {
             return when (snapshot.sourceState) {
                 VerifiedEntitlementState.TRIAL_ACTIVE,
                 VerifiedEntitlementState.PAID_ACTIVE,
-                -> activeEntitlement(EntitlementFreshness.VERIFIED)
+                -> if (isWithinFreshnessWindow) {
+                    activeEntitlement(EntitlementFreshness.VERIFIED)
+                } else {
+                    readOnlyEntitlement(EntitlementFreshness.STALE_CACHE)
+                }
 
-                VerifiedEntitlementState.EXPIRED_READ_ONLY -> readOnlyEntitlement(EntitlementFreshness.VERIFIED)
+                VerifiedEntitlementState.EXPIRED -> if (isWithinFreshnessWindow) {
+                    readOnlyEntitlement(EntitlementFreshness.VERIFIED)
+                } else {
+                    readOnlyEntitlement(EntitlementFreshness.INACTIVE_CACHE)
+                }
             }
         }
 
-        val cacheAgeMillis = (nowEpochMillis - snapshot.verifiedAtEpochMillis).coerceAtLeast(0L)
-        val hasFreshActiveCache = snapshot.sourceState != VerifiedEntitlementState.EXPIRED_READ_ONLY &&
-            cacheAgeMillis <= ENTITLEMENT_FRESHNESS_WINDOW_MS
+        val hasFreshActiveCache = isActiveSourceState && isWithinFreshnessWindow
 
         return when {
             hasFreshActiveCache -> EffectiveEntitlement(
@@ -116,7 +127,7 @@ object EntitlementEvaluator {
                 canUseCachedSuggestions = true,
             )
 
-            snapshot.sourceState == VerifiedEntitlementState.EXPIRED_READ_ONLY ->
+            snapshot.sourceState == VerifiedEntitlementState.EXPIRED ->
                 readOnlyEntitlement(EntitlementFreshness.INACTIVE_CACHE)
 
             else -> readOnlyEntitlement(EntitlementFreshness.STALE_CACHE)

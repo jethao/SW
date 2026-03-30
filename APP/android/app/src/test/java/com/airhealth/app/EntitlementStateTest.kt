@@ -59,6 +59,28 @@ class EntitlementStateTest {
     }
 
     @Test
+    fun selectorTreatsReachableButStaleActiveSnapshotAsReadOnly() {
+        val state = EntitlementCacheState(
+            snapshot = CachedEntitlementSnapshot(
+                sourceState = VerifiedEntitlementState.TRIAL_ACTIVE,
+                verifiedAtEpochMillis = 100L,
+            ),
+            isBackendReachable = true,
+        )
+
+        val effective = EntitlementEvaluator.deriveEffectiveState(
+            state = state,
+            nowEpochMillis = 100L + (24L * 60L * 60L * 1000L) + 1L,
+        )
+
+        assertEquals(EffectiveEntitlementMode.READ_ONLY, effective.mode)
+        assertEquals(EntitlementFreshness.STALE_CACHE, effective.freshness)
+        assertFalse(effective.canStartNewSessions)
+        assertFalse(effective.canEditGoals)
+        assertFalse(effective.canRequestLiveSuggestions)
+    }
+
+    @Test
     fun selectorTreatsFreshOfflineActiveSnapshotAsTemporaryAccess() {
         val state = EntitlementCacheState(
             snapshot = CachedEntitlementSnapshot(
@@ -100,7 +122,7 @@ class EntitlementStateTest {
 
         val inactiveState = EntitlementCacheState(
             snapshot = CachedEntitlementSnapshot(
-                sourceState = VerifiedEntitlementState.EXPIRED_READ_ONLY,
+                sourceState = VerifiedEntitlementState.EXPIRED,
                 verifiedAtEpochMillis = 500L,
             ),
             isBackendReachable = false,
@@ -115,6 +137,28 @@ class EntitlementStateTest {
         assertFalse(inactiveEffective.canEditGoals)
         assertFalse(inactiveEffective.canRequestLiveSuggestions)
         assertTrue(inactiveEffective.canUseCachedSuggestions)
+    }
+
+    @Test
+    fun selectorTreatsVerifiedExpiredSnapshotAsReadOnly() {
+        val state = EntitlementCacheState(
+            snapshot = CachedEntitlementSnapshot(
+                sourceState = VerifiedEntitlementState.EXPIRED,
+                verifiedAtEpochMillis = 5_000L,
+            ),
+            isBackendReachable = true,
+        )
+
+        val effective = EntitlementEvaluator.deriveEffectiveState(
+            state = state,
+            nowEpochMillis = 6_000L,
+        )
+
+        assertEquals(EffectiveEntitlementMode.READ_ONLY, effective.mode)
+        assertEquals(EntitlementFreshness.VERIFIED, effective.freshness)
+        assertFalse(effective.canStartNewSessions)
+        assertFalse(effective.canEditGoals)
+        assertFalse(effective.canRequestLiveSuggestions)
     }
 
     @Test

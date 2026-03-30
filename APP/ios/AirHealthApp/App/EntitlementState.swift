@@ -5,7 +5,7 @@ private let entitlementFreshnessWindow: TimeInterval = 24 * 60 * 60
 enum VerifiedEntitlementState: String {
     case trialActive = "trial_active"
     case paidActive = "paid_active"
-    case expiredReadOnly = "expired_read_only"
+    case expired = "expired"
 }
 
 enum EntitlementFreshness: String {
@@ -94,19 +94,26 @@ enum EntitlementEvaluator {
             return readOnlyEntitlement(freshness: .missingCache)
         }
 
+        let cacheAgeMillis = max(0, nowEpochMillis - snapshot.verifiedAtEpochMillis)
+        let isWithinFreshnessWindow = TimeInterval(cacheAgeMillis) <= entitlementFreshnessWindow * 1000
+        let isActiveSourceState = snapshot.sourceState == .trialActive || snapshot.sourceState == .paidActive
+
         if state.isBackendReachable {
             switch snapshot.sourceState {
             case .trialActive, .paidActive:
-                return activeEntitlement(freshness: .verified)
-            case .expiredReadOnly:
-                return readOnlyEntitlement(freshness: .verified)
+                if isWithinFreshnessWindow {
+                    return activeEntitlement(freshness: .verified)
+                }
+                return readOnlyEntitlement(freshness: .staleCache)
+            case .expired:
+                if isWithinFreshnessWindow {
+                    return readOnlyEntitlement(freshness: .verified)
+                }
+                return readOnlyEntitlement(freshness: .inactiveCache)
             }
         }
 
-        let cacheAgeMillis = max(0, nowEpochMillis - snapshot.verifiedAtEpochMillis)
-        let hasFreshActiveCache =
-            snapshot.sourceState != .expiredReadOnly &&
-            TimeInterval(cacheAgeMillis) <= entitlementFreshnessWindow * 1000
+        let hasFreshActiveCache = isActiveSourceState && isWithinFreshnessWindow
 
         if hasFreshActiveCache {
             return EffectiveEntitlement(
@@ -120,7 +127,7 @@ enum EntitlementEvaluator {
             )
         }
 
-        if snapshot.sourceState == .expiredReadOnly {
+        if snapshot.sourceState == .expired {
             return readOnlyEntitlement(freshness: .inactiveCache)
         }
 
