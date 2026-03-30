@@ -179,6 +179,10 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var entitlementCacheState: EntitlementCacheState
     @Published private(set) var goalCacheState = GoalCacheState()
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
+    @Published private(set) var sessionHistoryStoreState = SessionHistoryStoreState()
+    @Published private(set) var sessionSyncQueueState = SessionSyncQueueState()
+
+    private var sampleSessionOrdinal: Int64 = 0
 
     var lastBlockedActionAttempt: BlockedActionAttempt? {
         actionLockState.blockedAttempt
@@ -208,8 +212,60 @@ final class AppShellStore: ObservableObject {
         suggestionCacheState.suggestion(for: feature)
     }
 
+    func historyProjection(for feature: FeatureKind) -> FeatureHistoryProjection {
+        sessionHistoryStoreState.projection(for: feature)
+    }
+
+    func syncQueueProjection(for feature: FeatureKind) -> FeatureSyncQueueProjection {
+        sessionSyncQueueState.projection(for: feature, nowEpochMillis: nowEpochMillis())
+    }
+
+    func activeSyncJob(for feature: FeatureKind) -> PersistedSessionSyncJob? {
+        sessionSyncQueueState.activeJob(for: feature)
+    }
+
     func replaceEntitlementCacheState(_ state: EntitlementCacheState) {
         entitlementCacheState = state
+    }
+
+    func recordDemoCompletedSession(for feature: FeatureKind) {
+        sampleSessionOrdinal += 1
+        let session = synthesizeCompletedSession(
+            feature: feature,
+            ordinal: sampleSessionOrdinal
+        )
+        let reconciliation = SessionSyncReconciler.recordCompletedSession(
+            historyStoreState: sessionHistoryStoreState,
+            syncQueueState: sessionSyncQueueState,
+            session: session,
+            recordedAtEpochMillis: nowEpochMillis()
+        )
+        sessionHistoryStoreState = reconciliation.historyStoreState
+        sessionSyncQueueState = reconciliation.syncQueueState
+    }
+
+    func beginNextSyncAttempt() -> PersistedSessionSyncJob? {
+        let dispatch = sessionSyncQueueState.beginNextEligibleAttempt(nowEpochMillis: nowEpochMillis())
+        sessionSyncQueueState = dispatch.queueState
+        return dispatch.dispatchedJob
+    }
+
+    func markSyncAttemptSucceeded(sessionID: String) {
+        let reconciliation = SessionSyncReconciler.markSessionSynced(
+            historyStoreState: sessionHistoryStoreState,
+            syncQueueState: sessionSyncQueueState,
+            sessionID: sessionID
+        )
+        sessionHistoryStoreState = reconciliation.historyStoreState
+        sessionSyncQueueState = reconciliation.syncQueueState
+    }
+
+    func markSyncAttemptFailed(sessionID: String, reasonCode: String) {
+        sessionSyncQueueState = sessionSyncQueueState.markAttemptFailed(
+            sessionID: sessionID,
+            nowEpochMillis: nowEpochMillis(),
+            reasonCode: reasonCode
+        )
     }
 
     func applyGoalTemplate(_ template: GoalDraftTemplate) {
@@ -640,6 +696,30 @@ final class AppShellStore: ObservableObject {
         case .viewHistory, .consultProfessionals, .setup:
             return nil
         }
+    }
+
+    private func synthesizeCompletedSession(
+        feature: FeatureKind,
+        ordinal: Int64
+    ) -> MeasurementSessionState {
+        let sessionID = "\(feature.rawValue)-session-\(ordinal)"
+        let resultToken = "\(String(feature.rawValue.prefix(4)))-result-\(ordinal)"
+
+        return MeasurementSessionCoordinator.reduce(
+            state: MeasurementSessionCoordinator.reduce(
+                state: MeasurementSessionCoordinator.reduce(
+                    state: MeasurementSessionState.begin(
+                        sessionID: sessionID,
+                        feature: feature
+                    ),
+                    event: .measurementStarted
+                ),
+                event: .terminalReadingAvailable(
+                    MeasurementTerminalSummary(resultToken: resultToken)
+                )
+            ),
+            event: .terminalReadingConfirmed
+        )
     }
 }
 
