@@ -297,7 +297,7 @@ final class AppShellStore: ObservableObject {
 
         route = .setup(
             PairingFlowState(
-                step: .connected,
+                step: .claiming,
                 discoveredDevice: device,
                 recoveryMessage: nil,
                 claimOwnerLabel: nil,

@@ -62,7 +62,9 @@ class PairingFlowStateTest {
         assertTrue(route.pairingState.recoveryMessage?.contains("Retry claim") == true)
 
         routeState.retryClaimDevice()
-        routeState.startClaimDevice()
+        route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.CLAIMING, route.pairingState.step)
+
         routeState.completeClaimDevice()
         routeState.selectSetupMode(SetupMode.FAT_BURNING)
 

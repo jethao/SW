@@ -164,7 +164,7 @@ class FeatureHubRouteState(
         val device = currentRoute.pairingState.discoveredDevice ?: return
         route = FeatureHubRoute.Setup(
             PairingFlowState(
-                step = PairingStep.CONNECTED,
+                step = PairingStep.CLAIMING,
                 discoveredDevice = device,
             ),
         )
