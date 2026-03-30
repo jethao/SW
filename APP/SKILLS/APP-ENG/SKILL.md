@@ -1,6 +1,6 @@
 ---
 name: app-eng
-description: Execute AirHealth mobile app work from Linear by reading backlog issues in the `APP` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all app code in `SW/APP`, adding tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, creating each ticket branch from `main`, and requesting Codex review on the GitHub PR before considering the ticket handed off. Use when Codex needs to act as the mobile implementation engineer for ready Linear tickets without starting blocked work.
+description: Execute AirHealth mobile app work from Linear by reading backlog issues in the `APP` team for the AirHealth project, checking dependency readiness, implementing only unblocked tickets, keeping all app code in `SW/APP`, adding tests for the implemented feature when they do not already exist, creating one linked pull request per completed ticket, creating each ticket branch from `main`, and requesting Codex review on the GitHub PR before considering the ticket handed off. Use when Codex needs to act as the mobile implementation engineer with autonomy to process multiple ready, unblocked tickets without waiting for a manager between tickets.
 ---
 
 # App Engineer
@@ -14,7 +14,7 @@ The job of this skill is to pick only mobile tickets that are truly ready, imple
 - All mobile app code must live under `SW/APP`.
 - Before making any Linear or GitHub API write call, gather as much relevant context as possible first: ticket details, parent and child relationships, blockers, open PR state, review comments, and the relevant local app code and tests.
 - Do not start a ticket that has any unresolved blocker.
-- APP-ENG may work on multiple tickets in the same invocation when each ticket is independently ready and unblocked.
+- APP-ENG has autonomy to work through multiple tickets in the same invocation when each ticket is independently ready and unblocked.
 - Do not bundle multiple Linear tickets into one implementation PR.
 - Create exactly one PR per implemented ticket.
 - Keep each ticket isolated in its own branch, commit set, PR, and final summary entry.
@@ -96,8 +96,9 @@ Follow this sequence.
 - Inspect existing open app PRs, linked ticket state, and any outstanding PR comments before deciding whether to start or update work.
 - Filter to tickets with no unresolved blockers.
 - Prefer tickets that are already implementation-sized.
-- If multiple tickets are ready, APP-ENG may process more than one in the same invocation.
+- If multiple tickets are ready, APP-ENG should autonomously continue through all of the currently ready unblocked tickets it can safely complete in the same invocation.
 - Default to sequential processing. Only work on multiple tickets in parallel when their write scopes are clearly disjoint and each ticket still gets its own branch and PR.
+- Do not wait for a manager confirmation between ready tickets unless a new blocker, ambiguous scope boundary, or tooling risk appears.
 
 ### 2. Confirm The Implementation Boundary
 
@@ -128,6 +129,7 @@ Before starting the next ticket in the same invocation:
 - finish the current ticket's verification, branch, commit, PR, and Codex review request
 - return the worktree to a clean baseline for the next ticket
 - do not carry unfinished mixed changes from one ticket into another
+- continue directly into the next ready unblocked ticket if one is available
 
 ### 4. Verify
 
@@ -216,6 +218,7 @@ Do not implement and do not create a PR when:
 
 In these cases, give a short explanation of why the ticket is not ready and identify the blocker.
 If one ticket is blocked, skip it and continue to any other ready unblocked ticket instead of ending the whole run unnecessarily.
+Stop only when there are no more ready unblocked tickets, an open-PR policy from the invoking workflow prevents further starts, or a real blocker/risk needs escalation.
 
 ## Final Output
 

@@ -1,6 +1,6 @@
 ---
 name: app-mgr
-description: Manage the AirHealth mobile delivery loop by orchestrating `APP-ENG` for the `APP` Linear team and `jethao/SW` app pull requests. Use when Codex should first reconcile backlog parent tickets based on sub-ticket completion, then pick unblocked backlog work, invoke `APP-ENG` to implement ready app tickets, stop starting new work whenever app PRs are open, repeatedly invoke `APP-ENG` to address PR review comments until review is complete, and refresh `SW/APP/manager.rpt` on every run.
+description: Manage the AirHealth mobile delivery loop by orchestrating `APP-ENG` for the `APP` Linear team and `jethao/SW` app pull requests. Use when Codex should first reconcile backlog parent tickets based on sub-ticket completion, then let `APP-ENG` autonomously implement all currently ready unblocked app tickets, stop starting new work whenever app PRs are already open, repeatedly invoke `APP-ENG` to address PR review comments until review is complete, and refresh `SW/APP/manager.rpt` on every run.
 ---
 
 # App Manager
@@ -33,6 +33,7 @@ Use `APP-ENG` for detailed execution. `APP-mgr` owns queue control, stop conditi
 - Before invoking `APP-ENG`, inspect backlog parent tickets and mark a parent `Done` only when all of its sub-tickets are already `Done`.
 - Only start tickets in the `APP` team that are in project `AirHealth` and have no unresolved blockers or practical dependency gaps.
 - Do not auto-progress to new implementation work when there are any open app PRs.
+- If no app PRs are open at the start of the implementation phase, APP-mgr may hand control to `APP-ENG` and let it process multiple ready unblocked tickets in that same invocation.
 - When an app PR is open, treat the manager as being in review-wait or comment-resolution mode only.
 - If review comments exist on an open PR, invoke `APP-ENG` to address them on the same ticket branch, then re-check review state.
 - Continue invoking `APP-ENG` on active PRs until all actionable comments are addressed or a blocker is reported clearly.
@@ -60,18 +61,18 @@ Write the manager report to:
 
 ## Manager State Model
 
-Treat each invocation as operating on one mobile delivery lane at a time.
+Treat each invocation as managing the current mobile delivery queue, which may yield one or more newly opened implementation lanes from a single `APP-ENG` pass when no PRs were open at the start.
 
 Possible states:
 
-- `idle`: no open app PR exists, so a ready ticket may be started
-- `implementing`: a ready ticket exists with no PR yet, so invoke `APP-ENG`
+- `idle`: no open app PR exists, so ready ticket work may be started
+- `implementing`: one or more ready tickets exist with no open app PR yet, so invoke `APP-ENG`
 - `waiting_for_review`: an app PR is open and Codex review is still pending or incomplete
 - `comment_resolution`: an app PR has actionable review comments that must be addressed
 - `review_clean`: the current PR has no remaining actionable review findings but is still open
 - `blocked`: no ticket is ready because of blockers, dependency gaps, or unresolved upstream work
 
-Unlike the firmware manager, `APP-mgr` should not open new implementation lanes while any app PR remains open.
+Unlike the firmware manager, `APP-mgr` should not start another implementation pass while any app PR remains open.
 
 ## Queue Gate
 
@@ -83,7 +84,7 @@ Before doing any implementation work:
 4. inspect open app PRs in `jethao/SW`
 5. inspect the linked `APP` ticket for each open app PR
 6. inspect outstanding review comments and review-request state for those PRs
-7. only if there are no open app PRs, look for the next ready `APP` backlog ticket with no unresolved blocker
+7. only if there are no open app PRs, look for the current set of ready `APP` backlog tickets with no unresolved blocker
 
 Prefer batched read calls that build one coherent queue snapshot before any issue-state write.
 
@@ -121,7 +122,8 @@ Open PRs are a hard stop for new backlog progression.
 - use the already-gathered dependency context to eliminate tickets that are only superficially ready
 - choose only tickets with no unresolved blockers and no practical dependency gaps
 - prefer leaf implementation tasks over stories
-- invoke `APP-ENG` for ready tickets one at a time
+- invoke `APP-ENG` once and allow it to work through the currently ready unblocked tickets autonomously
+- expect `APP-ENG` to isolate each ticket in its own branch and PR even when it processes multiple tickets in one invocation
 
 If no ticket is ready:
 
@@ -137,7 +139,7 @@ For an active app PR:
 - after fixes are pushed, inspect the PR again
 - continue alternating PR inspection and `APP-ENG` comment-addressing passes until no actionable comments remain
 
-Do not start another ticket while this loop is active.
+Do not start another implementation pass while this loop is active.
 
 ### 5. Stop On Review-Clean Open PRs
 
@@ -188,6 +190,7 @@ The report should include:
 - whether backlog inspection was limited to `Backlog` tickets
 - active ticket and title, if any
 - active PR URL and status, if any
+- when applicable, multiple active tickets or PRs opened by the same `APP-ENG` pass
 - whether `APP-ENG` was invoked
 - whether the current run was waiting for review, addressing comments, or starting a fresh ticket
 - summary of actionable review findings from the latest PR state
@@ -201,8 +204,8 @@ Keep the report concise and operational.
 For each invocation, report:
 
 - whether any backlog parent tickets were marked `Done`
-- whether a new ticket was started or intentionally skipped
-- the active ticket and PR, if any
+- whether new ticket work was started or intentionally skipped
+- the active ticket or tickets and PR or PRs, if any
 - whether `APP-ENG` was invoked
 - whether the manager is waiting for review, addressing comments, review-clean, blocked, or idle
 - whether `SW/APP/manager.rpt` was refreshed
