@@ -140,6 +140,48 @@ class ActionGateAnalyticsTest {
         assertTrue("detected_voc_type" !in payload.keys)
     }
 
+    @Test
+    fun consultConflictAnalyticsStayExplicitAndConsumerSafe() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
+        routeState.replaceEntitlementCacheState(activeEntitlementState())
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+
+        assertEquals(
+            linkedMapOf(
+                "feature" to "oral_health",
+                "requested_action" to "consult_professionals",
+                "outcome" to "blocked",
+                "active_action" to "measure",
+                "reason_code" to "conflicting_action_in_progress",
+            ),
+            routeState.actionGateAnalytics.events.last().payload(),
+        )
+    }
+
+    @Test
+    fun consultHandoffAnalyticsDoNotExposeMeasurementOrAccountFields() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
+        routeState.replaceEntitlementCacheState(activeEntitlementState())
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+        routeState.refreshConsultDirectory(FeatureKind.ORAL_HEALTH)
+        routeState.beginConsultHandoff(
+            feature = FeatureKind.ORAL_HEALTH,
+            resourceTitle = "AirHealth Oral Wellness Coach",
+        )
+        routeState.confirmConsultHandoff()
+
+        val handoffEvent = routeState.consultHandoffAnalytics.events.last()
+        assertEquals("oral_health", handoffEvent.feature)
+        assertEquals("AirHealth Oral Wellness Coach", handoffEvent.resourceTitle)
+        assertEquals("care.airhealth.app", handoffEvent.targetHost)
+        assertEquals("Open virtual consult", handoffEvent.launchLabel)
+    }
+
     private fun activeEntitlementState(): EntitlementCacheState {
         return EntitlementCacheState(
             snapshot = CachedEntitlementSnapshot(
