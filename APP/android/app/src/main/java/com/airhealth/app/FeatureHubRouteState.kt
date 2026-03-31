@@ -64,6 +64,8 @@ class FeatureHubRouteState(
         private set
     var suggestionCacheState: SuggestionCacheState = SuggestionCacheState()
         private set
+    var consultDirectoryCacheState: ConsultDirectoryCacheState = ConsultDirectoryCacheState()
+        private set
     var oralMeasurementFlowState: OralMeasurementFlowState = OralMeasurementFlowState()
         private set
     var fatMeasurementFlowState: FatMeasurementFlowState = FatMeasurementFlowState()
@@ -103,6 +105,10 @@ class FeatureHubRouteState(
 
     fun suggestionFor(feature: FeatureKind): FeatureSuggestion? {
         return suggestionCacheState.suggestionFor(feature)
+    }
+
+    fun consultDirectoryFor(feature: FeatureKind): FeatureConsultDirectory? {
+        return consultDirectoryCacheState.directoryFor(feature)
     }
 
     fun historyProjectionFor(feature: FeatureKind): FeatureHistoryProjection {
@@ -159,6 +165,17 @@ class FeatureHubRouteState(
                 feature = feature,
                 goal = goalFor(feature),
             ),
+            cachedAtEpochMillis = currentTimeMillis(),
+        )
+    }
+
+    fun refreshConsultDirectory(
+        feature: FeatureKind,
+        localeTag: String = "en-US",
+    ) {
+        consultDirectoryCacheState = consultDirectoryCacheState.refresh(
+            feature = feature,
+            localeTag = localeTag,
             cachedAtEpochMillis = currentTimeMillis(),
         )
     }

@@ -389,6 +389,9 @@ class MainActivity : AppCompatActivity() {
         if (action == FeatureAction.GET_SUGGESTION) {
             return buildSuggestionActionView(context)
         }
+        if (action == FeatureAction.CONSULT_PROFESSIONALS) {
+            return buildConsultActionView(context)
+        }
         if (action == FeatureAction.VIEW_HISTORY) {
             return buildHistoryActionView(context)
         }
@@ -460,6 +463,62 @@ class MainActivity : AppCompatActivity() {
                     routeState.returnHome()
                     renderRoute()
                 }
+            )
+        }
+    }
+
+    private fun buildConsultActionView(context: SelectedFeatureContext): View {
+        title = FeatureAction.CONSULT_PROFESSIONALS.title
+        val entitlement = routeState.effectiveEntitlement
+        val directory = routeState.consultDirectoryFor(context.feature)
+
+        return verticalLayout().apply {
+            addView(headline("Consult professionals"))
+            addView(
+                bodyCopy(
+                    "Load and cache a feature-scoped support directory so consult resources stay available when the user reopens this feature.",
+                ),
+            )
+            addView(bodyCopy("Selected feature: ${context.feature.title}"))
+            addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            entitlementBannerState(entitlement)?.let { banner ->
+                addEntitlementBanner(banner)
+            }
+
+            if (directory == null) {
+                addView(
+                    bodyCopy(
+                        "No consult directory cached yet for ${context.feature.title}. Load the localized support list to keep it available offline for later reopen.",
+                    ),
+                )
+            } else {
+                addView(headline("Cached directory"))
+                addView(caption("Locale ${directory.localeTag} • revision ${directory.refreshRevision}"))
+                directory.resources.forEach { resource ->
+                    addView(bodyCopy(resource.title))
+                    addView(caption("${resource.specialtyLabel} • ${resource.regionLabel} • ${resource.availabilityLabel}"))
+                    addView(bodyCopy(resource.detail))
+                    addView(caption(resource.handoffHint))
+                }
+            }
+
+            addView(
+                actionButton(if (directory == null) "Load Support Directory" else "Refresh Support Directory") {
+                    routeState.refreshConsultDirectory(context.feature)
+                    renderRoute()
+                },
+            )
+            addView(
+                actionButton("Return To ${context.feature.title}") {
+                    routeState.returnToFeature()
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton("Return To Home") {
+                    routeState.returnHome()
+                    renderRoute()
+                },
             )
         }
     }
