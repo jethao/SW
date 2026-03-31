@@ -333,4 +333,71 @@ class FeatureHubRouteStateTest {
             routeState.consultHandoffAnalytics.events.last().resourceTitle,
         )
     }
+
+    @Test
+    fun consultEntryRemainsAvailableAcrossAllowedEntitlementStates() {
+        val entitlementStates = listOf(
+            EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = true,
+                lastVerificationAttemptAtEpochMillis = 1_000L,
+            ),
+            EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.TRIAL_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = true,
+                lastVerificationAttemptAtEpochMillis = 1_000L,
+            ),
+            EntitlementCacheState(
+                snapshot = CachedEntitlementSnapshot(
+                    sourceState = VerifiedEntitlementState.PAID_ACTIVE,
+                    verifiedAtEpochMillis = 1_000L,
+                ),
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 2_000L,
+            ),
+            EntitlementCacheState(
+                snapshot = null,
+                isBackendReachable = false,
+                lastVerificationAttemptAtEpochMillis = 2_000L,
+            ),
+        )
+
+        entitlementStates.forEach { entitlementState ->
+            val routeState = FeatureHubRouteState(currentTimeMillis = { 3_000L })
+            routeState.replaceEntitlementCacheState(entitlementState)
+
+            routeState.openFeature(FeatureKind.ORAL_HEALTH)
+            routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+
+            val route = routeState.route as FeatureHubRoute.Action
+            assertEquals(FeatureAction.CONSULT_PROFESSIONALS, route.action)
+            assertNull(routeState.lastBlockedActionAttempt)
+        }
+    }
+
+    @Test
+    fun conflictingActionStillBlocksConsultEntryWithExplicitReason() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.FAT_BURNING)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+
+        val actionRoute = routeState.route as FeatureHubRoute.Action
+        assertEquals(FeatureAction.MEASURE, actionRoute.action)
+        assertEquals(
+            ActionLockReasonCode.CONFLICTING_ACTION_IN_PROGRESS,
+            routeState.lastBlockedActionAttempt?.reasonCode,
+        )
+        assertEquals(
+            ManagedAction.CONSULT_PROFESSIONALS,
+            routeState.lastBlockedActionAttempt?.requestedAction,
+        )
+    }
 }
