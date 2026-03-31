@@ -36,6 +36,7 @@ If a PR is open against the SW repo but does not materially touch app scope, ski
 - If the PR has no linked ticket, treat that as incomplete review context and request changes unless the user explicitly says otherwise.
 - If the linked ticket and code disagree, the ticket is the source of truth for review scope unless the PR description clearly documents an approved scope change.
 - Request changes for correctness problems, missing requirements, broken behavior, missing verification, or obvious ticket mismatch.
+- Any non-approval review must cite the exact code under question with file paths and line numbers when the concern is tied to specific code.
 - Approve only when the implementation, tests, and ticket alignment all look right.
 
 ## Required Inputs
@@ -147,6 +148,7 @@ If there are material issues:
 - request changes
 - summarize the concrete problems
 - tie each problem back to the ticket or code behavior
+- include the relevant file path and line reference for each concrete code issue when the concern is visible in the diff or surrounding source
 
 If everything looks correct:
 
@@ -173,6 +175,7 @@ When requesting changes:
 - lead with the most important correctness issue
 - be explicit about what is wrong
 - cite the ticket expectation that is not met
+- include the file path and line number or tight line range for the code being questioned whenever applicable
 - keep comments actionable and specific
 
 When approving:
