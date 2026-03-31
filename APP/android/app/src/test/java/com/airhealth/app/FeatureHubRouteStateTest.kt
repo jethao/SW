@@ -192,4 +192,25 @@ class FeatureHubRouteStateTest {
         assertEquals(1, syncedHistory.syncedCount)
         assertEquals(1, syncedQueue.syncedCount)
     }
+
+    @Test
+    fun oralMeasurementRouteSurfacesGuidedCompletionAndBaselineProgress() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.startOralMeasurement()
+        routeState.markOralWarmupPassed()
+        routeState.completeOralMeasurement()
+
+        assertEquals(OralMeasurementFlowStep.COMPLETE, routeState.oralMeasurementFlowState.step)
+        assertEquals(
+            "1/5 baseline sessions",
+            routeState.oralMeasurementFlowState.latestResult?.baselineProgressLabel,
+        )
+        assertEquals(
+            MeasurementSessionPhase.COMPLETE,
+            routeState.oralMeasurementFlowState.activeSession?.phase,
+        )
+    }
 }

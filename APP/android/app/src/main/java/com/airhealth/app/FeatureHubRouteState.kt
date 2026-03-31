@@ -64,6 +64,8 @@ class FeatureHubRouteState(
         private set
     var suggestionCacheState: SuggestionCacheState = SuggestionCacheState()
         private set
+    var oralMeasurementFlowState: OralMeasurementFlowState = OralMeasurementFlowState()
+        private set
     var sessionHistoryStoreState: SessionHistoryStoreState = SessionHistoryStoreState()
         private set
     var sessionSyncQueueState: SessionSyncQueueState = SessionSyncQueueState()
@@ -159,6 +161,9 @@ class FeatureHubRouteState(
 
     fun openFeature(feature: FeatureKind) {
         actionLockState = actionLockState.clearBlockedAttempt()
+        if (feature != FeatureKind.ORAL_HEALTH) {
+            oralMeasurementFlowState = OralMeasurementFlowState()
+        }
         route = FeatureHubRoute.Feature(
             SelectedFeatureContext(
                 feature = feature,
@@ -394,7 +399,49 @@ class FeatureHubRouteState(
             is FeatureHubRoute.Action -> actionLockState.release()
             else -> actionLockState.clearBlockedAttempt()
         }
+        oralMeasurementFlowState = OralMeasurementFlowState()
         route = FeatureHubRoute.Home
+    }
+
+    fun startOralMeasurement() {
+        val currentContext = currentFeatureContext() ?: return
+        if (currentContext.feature != FeatureKind.ORAL_HEALTH) return
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.start(
+            state = oralMeasurementFlowState,
+            sessionId = nextMeasurementSessionId(currentContext.feature),
+        )
+    }
+
+    fun markOralWarmupPassed() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.markWarmupPassed(
+            state = oralMeasurementFlowState,
+        )
+    }
+
+    fun markOralWarmupFailed() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.markWarmupFailed(
+            state = oralMeasurementFlowState,
+        )
+    }
+
+    fun completeOralMeasurement() {
+        val nextScore = 52 + (oralMeasurementFlowState.baselineProgress.completedValidSessions * 4)
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.complete(
+            state = oralMeasurementFlowState,
+            oralHealthScore = nextScore.coerceAtMost(76),
+        )
+    }
+
+    fun markOralInvalidSample() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.markInvalidSample(
+            state = oralMeasurementFlowState,
+        )
+    }
+
+    fun cancelOralMeasurement() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.cancel(
+            state = oralMeasurementFlowState,
+        )
     }
 
     fun activeManagedAction(): ManagedAction? {
@@ -523,6 +570,11 @@ class FeatureHubRouteState(
             is FeatureHubRoute.Action -> currentRoute.context
             FeatureHubRoute.Home -> null
         }
+    }
+
+    private fun nextMeasurementSessionId(feature: FeatureKind): String {
+        sampleSessionOrdinal += 1
+        return "${feature.routeId}-session-$sampleSessionOrdinal"
     }
 
     private fun currentRecoverableFailureStep(): PairingStep? {

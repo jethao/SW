@@ -179,6 +179,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var entitlementCacheState: EntitlementCacheState
     @Published private(set) var goalCacheState = GoalCacheState()
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
+    @Published private(set) var oralMeasurementFlowState = OralMeasurementFlowState()
     @Published private(set) var sessionHistoryStoreState = SessionHistoryStoreState()
     @Published private(set) var sessionSyncQueueState = SessionSyncQueueState()
     @Published private(set) var exportAuditStoreState = ExportAuditStoreState()
@@ -387,6 +388,9 @@ final class AppShellStore: ObservableObject {
         var nextLockState = actionLockState
         nextLockState.clearBlockedAttempt()
         actionLockState = nextLockState
+        if feature != .oralHealth {
+            oralMeasurementFlowState = OralMeasurementFlowState()
+        }
         route = .featureHub(
             SelectedFeatureContext(
                 feature: feature,
@@ -728,7 +732,52 @@ final class AppShellStore: ObservableObject {
         }
         actionLockState = nextLockState
 
+        oralMeasurementFlowState = OralMeasurementFlowState()
         route = .home
+    }
+
+    func startOralMeasurement() {
+        guard let context = currentFeatureContext(),
+              context.feature == .oralHealth else {
+            return
+        }
+
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.start(
+            state: oralMeasurementFlowState,
+            sessionID: nextMeasurementSessionID(feature: context.feature)
+        )
+    }
+
+    func markOralWarmupPassed() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.markWarmupPassed(
+            state: oralMeasurementFlowState
+        )
+    }
+
+    func markOralWarmupFailed() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.markWarmupFailed(
+            state: oralMeasurementFlowState
+        )
+    }
+
+    func completeOralMeasurement() {
+        let nextScore = min(52 + (oralMeasurementFlowState.baselineProgress.completedValidSessions * 4), 76)
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.complete(
+            state: oralMeasurementFlowState,
+            oralHealthScore: nextScore
+        )
+    }
+
+    func markOralInvalidSample() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.markInvalidSample(
+            state: oralMeasurementFlowState
+        )
+    }
+
+    func cancelOralMeasurement() {
+        oralMeasurementFlowState = OralMeasurementFlowCoordinator.cancel(
+            state: oralMeasurementFlowState
+        )
     }
 
     private var currentRecoverableFailureStep: PairingStep? {
@@ -767,6 +816,11 @@ final class AppShellStore: ObservableObject {
     }
 
     private let nowEpochMillis: () -> Int64
+
+    private func nextMeasurementSessionID(feature: FeatureKind) -> String {
+        sampleSessionOrdinal += 1
+        return "\(feature.rawValue)-session-\(sampleSessionOrdinal)"
+    }
 
     private func entitlementBlockReason(
         for action: ManagedAction,
