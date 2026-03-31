@@ -29,7 +29,6 @@ struct CompletedSummaryExportPayload {
     let platform: HealthExportPlatform
     let sessionID: String
     let feature: String
-    let resultToken: String
     let recordedAtEpochMillis: Int64
     let summaryTitle: String
     let summaryDetail: String
@@ -39,7 +38,6 @@ struct CompletedSummaryExportPayload {
             "platform": platform.rawValue,
             "session_id": sessionID,
             "feature": feature,
-            "result_token": resultToken,
             "recorded_at_epoch_millis": String(recordedAtEpochMillis),
             "summary_title": summaryTitle,
             "summary_detail": summaryDetail,
@@ -134,10 +132,9 @@ enum HealthExportAdapter {
             platform: platform,
             sessionID: record.sessionID,
             feature: record.feature.rawValue,
-            resultToken: record.resultToken,
             recordedAtEpochMillis: record.recordedAtEpochMillis,
             summaryTitle: record.summaryTitle,
-            summaryDetail: record.summaryDetail
+            summaryDetail: record.consumerSafeSummaryDetail()
         )
     }
 }

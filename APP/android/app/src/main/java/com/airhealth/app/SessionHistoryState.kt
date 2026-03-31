@@ -16,6 +16,10 @@ data class PersistedSessionSummaryRecord(
     val summaryTitle: String,
     val summaryDetail: String,
 ) {
+    fun consumerSafeSummaryDetail(): String {
+        return consumerSafeSummaryDetailFor(feature)
+    }
+
     fun encode(): String {
         return listOf(
             sessionId,
@@ -56,10 +60,6 @@ data class PersistedSessionSummaryRecord(
                 FeatureKind.ORAL_HEALTH -> "Oral session complete"
                 FeatureKind.FAT_BURNING -> "Fat-burning session complete"
             }
-            val detail = when (session.feature) {
-                FeatureKind.ORAL_HEALTH -> "Result token ${session.terminalSummary?.resultToken ?: "pending"} recorded for oral trend history."
-                FeatureKind.FAT_BURNING -> "Result token ${session.terminalSummary?.resultToken ?: "pending"} recorded for fat-burning history."
-            }
 
             return PersistedSessionSummaryRecord(
                 sessionId = session.sessionId,
@@ -68,8 +68,15 @@ data class PersistedSessionSummaryRecord(
                 recordedAtEpochMillis = recordedAtEpochMillis,
                 syncState = syncState,
                 summaryTitle = title,
-                summaryDetail = detail,
+                summaryDetail = consumerSafeSummaryDetailFor(session.feature),
             )
+        }
+
+        private fun consumerSafeSummaryDetailFor(feature: FeatureKind): String {
+            return when (feature) {
+                FeatureKind.ORAL_HEALTH -> "Saved oral trend summary for later history review."
+                FeatureKind.FAT_BURNING -> "Saved fat-burning trend summary for later history review."
+            }
         }
     }
 }
@@ -123,7 +130,7 @@ data class SessionHistoryStoreState(
             HistoryProjectionItem(
                 sessionId = record.sessionId,
                 title = record.summaryTitle,
-                detail = record.summaryDetail,
+                detail = record.consumerSafeSummaryDetail(),
                 statusLabel = when (record.syncState) {
                     SessionSyncState.PENDING -> "Pending sync"
                     SessionSyncState.SYNCED -> "Synced"

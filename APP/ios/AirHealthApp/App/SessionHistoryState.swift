@@ -14,6 +14,10 @@ struct PersistedSessionSummaryRecord {
     let summaryTitle: String
     let summaryDetail: String
 
+    func consumerSafeSummaryDetail() -> String {
+        Self.consumerSafeSummaryDetail(for: feature)
+    }
+
     func encode() -> String {
         [
             sessionID,
@@ -52,10 +56,10 @@ struct PersistedSessionSummaryRecord {
         switch session.feature {
         case .oralHealth:
             title = "Oral session complete"
-            detail = "Result token \(session.terminalSummary?.resultToken ?? "pending") recorded for oral trend history."
+            detail = consumerSafeSummaryDetail(for: .oralHealth)
         case .fatBurning:
             title = "Fat-burning session complete"
-            detail = "Result token \(session.terminalSummary?.resultToken ?? "pending") recorded for fat-burning history."
+            detail = consumerSafeSummaryDetail(for: .fatBurning)
         }
 
         return PersistedSessionSummaryRecord(
@@ -67,6 +71,15 @@ struct PersistedSessionSummaryRecord {
             summaryTitle: title,
             summaryDetail: detail
         )
+    }
+
+    private static func consumerSafeSummaryDetail(for feature: FeatureKind) -> String {
+        switch feature {
+        case .oralHealth:
+            return "Saved oral trend summary for later history review."
+        case .fatBurning:
+            return "Saved fat-burning trend summary for later history review."
+        }
     }
 }
 
@@ -127,7 +140,7 @@ struct SessionHistoryStoreState {
             HistoryProjectionItem(
                 sessionID: record.sessionID,
                 title: record.summaryTitle,
-                detail: record.summaryDetail,
+                detail: record.consumerSafeSummaryDetail(),
                 statusLabel: record.syncState == .pending ? "Pending sync" : "Synced",
                 recordedAtEpochMillis: record.recordedAtEpochMillis
             )

@@ -37,7 +37,10 @@ class SessionHistoryStateTest {
         assertEquals(1, projection.pendingCount)
         assertEquals(0, projection.syncedCount)
         assertEquals("Oral session complete", projection.latestItem?.title)
-        assertTrue(projection.latestItem?.detail?.contains("oral-token-001") == true)
+        assertEquals(
+            "Saved oral trend summary for later history review.",
+            projection.latestItem?.detail,
+        )
     }
 
     @Test
@@ -75,5 +78,9 @@ class SessionHistoryStateTest {
         assertEquals(1, fatProjection.syncedCount)
         assertEquals("Synced", fatProjection.latestItem?.statusLabel)
         assertNotNull(fatProjection.latestItem)
+        assertEquals(
+            "Saved fat-burning trend summary for later history review.",
+            fatProjection.latestItem?.detail,
+        )
     }
 }

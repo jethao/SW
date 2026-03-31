@@ -27,7 +27,6 @@ data class CompletedSummaryExportPayload(
     val platform: HealthExportPlatform,
     val sessionId: String,
     val feature: String,
-    val resultToken: String,
     val recordedAtEpochMillis: Long,
     val summaryTitle: String,
     val summaryDetail: String,
@@ -37,7 +36,6 @@ data class CompletedSummaryExportPayload(
             "platform" to platform.wireValue,
             "session_id" to sessionId,
             "feature" to feature,
-            "result_token" to resultToken,
             "recorded_at_epoch_millis" to recordedAtEpochMillis.toString(),
             "summary_title" to summaryTitle,
             "summary_detail" to summaryDetail,
@@ -121,10 +119,9 @@ object HealthExportAdapter {
             platform = platform,
             sessionId = record.sessionId,
             feature = record.feature.routeId,
-            resultToken = record.resultToken,
             recordedAtEpochMillis = record.recordedAtEpochMillis,
             summaryTitle = record.summaryTitle,
-            summaryDetail = record.summaryDetail,
+            summaryDetail = record.consumerSafeSummaryDetail(),
         )
     }
 }

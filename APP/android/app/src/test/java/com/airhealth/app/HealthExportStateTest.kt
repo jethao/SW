@@ -28,7 +28,6 @@ class HealthExportStateTest {
                 "platform",
                 "session_id",
                 "feature",
-                "result_token",
                 "recorded_at_epoch_millis",
                 "summary_title",
                 "summary_detail",
@@ -37,6 +36,11 @@ class HealthExportStateTest {
         )
         assertEquals("health_connect", payload.asWireMap()["platform"])
         assertNull(payload.asWireMap()["sync_state"])
+        assertNull(payload.asWireMap()["result_token"])
+        assertEquals(
+            "Saved oral trend summary for later history review.",
+            payload.asWireMap()["summary_detail"],
+        )
     }
 
     @Test
