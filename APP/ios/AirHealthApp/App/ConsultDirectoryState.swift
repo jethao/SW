@@ -9,6 +9,9 @@ struct ConsultDirectoryResource: Identifiable {
     let availabilityLabel: String
     let detail: String
     let handoffHint: String
+    let externalURL: URL
+    let launchLabel: String
+    let leaveAirHealthMessage: String
 
     var id: String {
         "\(feature.rawValue)-\(title)"
@@ -53,6 +56,18 @@ struct ConsultDirectoryCacheState {
     }
 }
 
+struct PendingConsultHandoff {
+    let resource: ConsultDirectoryResource
+    let requestedAtEpochMillis: Int64
+}
+
+struct ConsultHandoffEvent {
+    let feature: String
+    let resourceTitle: String
+    let targetHost: String
+    let launchLabel: String
+}
+
 func consultDirectoryTemplates(
     for feature: FeatureKind,
     localeTag: String
@@ -68,7 +83,10 @@ func consultDirectoryTemplates(
                 regionLabel: "Local virtual care network",
                 availabilityLabel: "Weekday virtual consults",
                 detail: "General oral-health coaching and trend interpretation support for recurring gum-sensitivity or hygiene questions.",
-                handoffHint: "Directory-only support listing. External handoff stays in the next consult ticket."
+                handoffHint: "Directory-only support listing. External handoff stays in the next consult ticket.",
+                externalURL: URL(string: "https://care.airhealth.app/oral-wellness-coach")!,
+                launchLabel: "Open virtual consult",
+                leaveAirHealthMessage: "This opens the AirHealth care network in your browser. AirHealth keeps your measurement details here unless you choose to share them later."
             ),
             ConsultDirectoryResource(
                 feature: feature,
@@ -78,7 +96,10 @@ func consultDirectoryTemplates(
                 regionLabel: "Regional clinic partner",
                 availabilityLabel: "New-patient screening",
                 detail: "Consumer-facing preventive follow-up option for baseline changes that may need an in-person dental screening.",
-                handoffHint: "Keep session details inside AirHealth until the user explicitly leaves the app."
+                handoffHint: "Keep session details inside AirHealth until the user explicitly leaves the app.",
+                externalURL: URL(string: "https://providers.airhealth.app/preventive-dentistry")!,
+                launchLabel: "Open clinic site",
+                leaveAirHealthMessage: "You are leaving AirHealth for a partner clinic site. No session payload is sent with this handoff."
             ),
         ]
     case .fatBurning:
@@ -91,7 +112,10 @@ func consultDirectoryTemplates(
                 regionLabel: "Local virtual care network",
                 availabilityLabel: "Evening video sessions",
                 detail: "Consumer-safe coaching resource for interpreting repeated fat-burning trend changes across training blocks.",
-                handoffHint: "Directory-only support listing. External handoff stays in the next consult ticket."
+                handoffHint: "Directory-only support listing. External handoff stays in the next consult ticket.",
+                externalURL: URL(string: "https://care.airhealth.app/metabolic-performance")!,
+                launchLabel: "Open coach profile",
+                leaveAirHealthMessage: "This opens the AirHealth care network in your browser. AirHealth keeps your device and session details inside the app."
             ),
             ConsultDirectoryResource(
                 feature: feature,
@@ -101,7 +125,10 @@ func consultDirectoryTemplates(
                 regionLabel: "Regional wellness partner",
                 availabilityLabel: "Next-week availability",
                 detail: "Nutrition-focused support option for users tracking recovery or training-day pattern changes.",
-                handoffHint: "No measurement payload leaves AirHealth in this ticket."
+                handoffHint: "No measurement payload leaves AirHealth in this ticket.",
+                externalURL: URL(string: "https://partners.airhealth.app/recovery-nutrition")!,
+                launchLabel: "Open advisor site",
+                leaveAirHealthMessage: "You are leaving AirHealth for an external advisor site. The handoff only carries the destination link, not your measurement history."
             ),
         ]
     }

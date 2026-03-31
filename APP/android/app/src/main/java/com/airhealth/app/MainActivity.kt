@@ -1,5 +1,7 @@
 package com.airhealth.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -471,6 +473,8 @@ class MainActivity : AppCompatActivity() {
         title = FeatureAction.CONSULT_PROFESSIONALS.title
         val entitlement = routeState.effectiveEntitlement
         val directory = routeState.consultDirectoryFor(context.feature)
+        val pendingHandoff = routeState.pendingConsultHandoff
+        val latestHandoff = routeState.consultHandoffAnalytics.events.lastOrNull()
 
         return verticalLayout().apply {
             addView(headline("Consult professionals"))
@@ -483,6 +487,12 @@ class MainActivity : AppCompatActivity() {
             addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
             entitlementBannerState(entitlement)?.let { banner ->
                 addEntitlementBanner(banner)
+            }
+
+            latestHandoff?.takeIf { it.feature == context.feature.routeId }?.let { event ->
+                addView(headline("Latest outbound handoff"))
+                addView(bodyCopy("${event.resourceTitle} launched via ${event.launchLabel}."))
+                addView(caption("Destination: ${event.targetHost}"))
             }
 
             if (directory == null) {
@@ -499,6 +509,35 @@ class MainActivity : AppCompatActivity() {
                     addView(caption("${resource.specialtyLabel} • ${resource.regionLabel} • ${resource.availabilityLabel}"))
                     addView(bodyCopy(resource.detail))
                     addView(caption(resource.handoffHint))
+                    if (pendingHandoff?.resource?.title == resource.title) {
+                        addView(headline("Leave AirHealth"))
+                        addView(bodyCopy(resource.leaveAirHealthMessage))
+                        addView(caption("Destination: ${resource.externalUrl}"))
+                        addView(
+                            actionButton(resource.launchLabel) {
+                                routeState.confirmConsultHandoff()?.let { targetUrl ->
+                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)))
+                                }
+                                renderRoute()
+                            },
+                        )
+                        addView(
+                            secondaryButton("Stay In AirHealth") {
+                                routeState.cancelConsultHandoff()
+                                renderRoute()
+                            },
+                        )
+                    } else {
+                        addView(
+                            actionButton(resource.launchLabel) {
+                                routeState.beginConsultHandoff(
+                                    feature = context.feature,
+                                    resourceTitle = resource.title,
+                                )
+                                renderRoute()
+                            },
+                        )
+                    }
                 }
             }
 

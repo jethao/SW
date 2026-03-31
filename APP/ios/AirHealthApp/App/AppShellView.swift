@@ -57,6 +57,7 @@ struct SelectedFeatureContext {
 
 struct AppShellView: View {
     @StateObject private var store: AppShellStore
+    @Environment(\.openURL) private var openURL
 
     init() {
         let store = AppShellStore()
@@ -207,8 +208,21 @@ struct AppShellView: View {
                     context: context,
                     entitlement: store.effectiveEntitlement,
                     directory: store.consultDirectory(for: context.feature),
+                    pendingHandoff: store.pendingConsultHandoff,
+                    latestHandoff: store.consultHandoffEvents.last(where: { $0.feature == context.feature.rawValue }),
                     onRefreshDirectory: {
                         store.refreshConsultDirectory(feature: context.feature)
+                    },
+                    onBeginHandoff: { resource in
+                        store.beginConsultHandoff(resource: resource)
+                    },
+                    onConfirmHandoff: {
+                        if let url = store.confirmConsultHandoff() {
+                            openURL(url)
+                        }
+                    },
+                    onCancelHandoff: {
+                        store.cancelConsultHandoff()
                     },
                     onReturnToFeature: {
                         store.returnToFeature()
@@ -1371,7 +1385,12 @@ private struct ConsultDirectoryView: View {
     let context: SelectedFeatureContext
     let entitlement: EffectiveEntitlement
     let directory: FeatureConsultDirectory?
+    let pendingHandoff: PendingConsultHandoff?
+    let latestHandoff: ConsultHandoffEvent?
     let onRefreshDirectory: () -> Void
+    let onBeginHandoff: (ConsultDirectoryResource) -> Void
+    let onConfirmHandoff: () -> Void
+    let onCancelHandoff: () -> Void
     let onReturnToFeature: () -> Void
     let onReturnHome: () -> Void
 
@@ -1392,6 +1411,15 @@ private struct ConsultDirectoryView: View {
                 EntitlementBannerView(banner: banner)
             }
 
+            if let latestHandoff {
+                Text("Latest outbound handoff")
+                    .font(.headline)
+                Text("\(latestHandoff.resourceTitle) launched via \(latestHandoff.launchLabel).")
+                Text("Destination: \(latestHandoff.targetHost)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
             if let directory {
                 Text("Cached directory")
                     .font(.headline)
@@ -1410,6 +1438,28 @@ private struct ConsultDirectoryView: View {
                     Text(resource.handoffHint)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    if pendingHandoff?.resource.id == resource.id {
+                        Text("Leave AirHealth")
+                            .font(.headline)
+                        Text(resource.leaveAirHealthMessage)
+                            .foregroundStyle(.secondary)
+                        Text("Destination: \(resource.externalURL.absoluteString)")
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(.secondary)
+                        Button(resource.launchLabel) {
+                            onConfirmHandoff()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Stay In AirHealth") {
+                            onCancelHandoff()
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button(resource.launchLabel) {
+                            onBeginHandoff(resource)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             } else {
                 Text("No consult directory cached yet for \(context.feature.title). Load the localized support list to keep it available offline for later reopen.")

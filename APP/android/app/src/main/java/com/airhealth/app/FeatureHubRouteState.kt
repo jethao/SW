@@ -66,6 +66,8 @@ class FeatureHubRouteState(
         private set
     var consultDirectoryCacheState: ConsultDirectoryCacheState = ConsultDirectoryCacheState()
         private set
+    var pendingConsultHandoff: PendingConsultHandoff? = null
+        private set
     var oralMeasurementFlowState: OralMeasurementFlowState = OralMeasurementFlowState()
         private set
     var fatMeasurementFlowState: FatMeasurementFlowState = FatMeasurementFlowState()
@@ -89,6 +91,7 @@ class FeatureHubRouteState(
 
     val actionGateAnalytics = ActionGateAnalytics()
     val pairingRecoveryAnalytics = PairingRecoveryAnalytics()
+    val consultHandoffAnalytics = ConsultHandoffAnalytics()
 
     val lastBlockedActionAttempt: BlockedActionAttempt?
         get() = actionLockState.blockedAttempt
@@ -178,10 +181,37 @@ class FeatureHubRouteState(
             localeTag = localeTag,
             cachedAtEpochMillis = currentTimeMillis(),
         )
+        pendingConsultHandoff = null
+    }
+
+    fun beginConsultHandoff(
+        feature: FeatureKind,
+        resourceTitle: String,
+    ) {
+        val resource = consultDirectoryFor(feature)
+            ?.resources
+            ?.firstOrNull { it.title == resourceTitle }
+            ?: return
+        pendingConsultHandoff = PendingConsultHandoff(
+            resource = resource,
+            requestedAtEpochMillis = currentTimeMillis(),
+        )
+    }
+
+    fun cancelConsultHandoff() {
+        pendingConsultHandoff = null
+    }
+
+    fun confirmConsultHandoff(): String? {
+        val pending = pendingConsultHandoff ?: return null
+        pendingConsultHandoff = null
+        consultHandoffAnalytics.recordLaunched(pending.resource)
+        return pending.resource.externalUrl
     }
 
     fun openFeature(feature: FeatureKind) {
         actionLockState = actionLockState.clearBlockedAttempt()
+        pendingConsultHandoff = null
         if (feature != FeatureKind.ORAL_HEALTH) {
             oralMeasurementFlowState = OralMeasurementFlowState()
         }
@@ -417,6 +447,7 @@ class FeatureHubRouteState(
     fun returnToFeature() {
         val currentActionRoute = route as? FeatureHubRoute.Action ?: return
         actionLockState = actionLockState.release()
+        pendingConsultHandoff = null
         route = FeatureHubRoute.Feature(currentActionRoute.context)
     }
 
@@ -425,6 +456,7 @@ class FeatureHubRouteState(
             is FeatureHubRoute.Action -> actionLockState.release()
             else -> actionLockState.clearBlockedAttempt()
         }
+        pendingConsultHandoff = null
         oralMeasurementFlowState = OralMeasurementFlowState()
         fatMeasurementFlowState = FatMeasurementFlowState()
         measurementRecoveryState = null

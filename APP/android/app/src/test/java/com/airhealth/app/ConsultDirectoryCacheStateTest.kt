@@ -44,4 +44,18 @@ class ConsultDirectoryCacheStateTest {
         assertEquals("AirHealth Oral Wellness Coach", oralDirectory.resources.first().title)
         assertEquals("Metabolic Performance Coach", fatDirectory.resources.first().title)
     }
+
+    @Test
+    fun resourcesCarryExternalHandoffMetadata() {
+        val directory = requireNotNull(
+            ConsultDirectoryCacheState()
+                .refresh(feature = FeatureKind.ORAL_HEALTH, localeTag = "en-US", cachedAtEpochMillis = 1_000L)
+                .directoryFor(FeatureKind.ORAL_HEALTH),
+        )
+
+        val resource = directory.resources.first()
+        assertEquals("Open virtual consult", resource.launchLabel)
+        assertTrue(resource.externalUrl.startsWith("https://"))
+        assertTrue(resource.leaveAirHealthMessage.contains("AirHealth", ignoreCase = true))
+    }
 }
