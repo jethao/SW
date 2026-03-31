@@ -202,6 +202,21 @@ struct AppShellView: View {
                         store.returnHome()
                     }
                 )
+            } else if action == .consultProfessionals {
+                ConsultDirectoryView(
+                    context: context,
+                    entitlement: store.effectiveEntitlement,
+                    directory: store.consultDirectory(for: context.feature),
+                    onRefreshDirectory: {
+                        store.refreshConsultDirectory(feature: context.feature)
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
             } else if action == .viewHistory {
                 FeatureHistoryView(
                     context: context,
@@ -1335,6 +1350,76 @@ private struct FeatureSuggestionView: View {
             .buttonStyle(.bordered)
             .disabled(!suggestionSurface.canRefreshSuggestion)
             .opacity(suggestionSurface.canRefreshSuggestion ? 1 : 0.58)
+
+            Button("Return To \(context.feature.title)") {
+                onReturnToFeature()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Return To Home") {
+                onReturnHome()
+            }
+            .buttonStyle(.bordered)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct ConsultDirectoryView: View {
+    let context: SelectedFeatureContext
+    let entitlement: EffectiveEntitlement
+    let directory: FeatureConsultDirectory?
+    let onRefreshDirectory: () -> Void
+    let onReturnToFeature: () -> Void
+    let onReturnHome: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Consult professionals")
+                .font(.title3.bold())
+
+            Text("Load and cache a feature-scoped support directory so consult resources stay available when the user reopens this feature.")
+                .foregroundStyle(.secondary)
+
+            Text("Selected feature: \(context.feature.title)")
+            Text("Return route ID: \(context.lastVisitedRouteID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            if let banner = entitlementBannerState(entitlement) {
+                EntitlementBannerView(banner: banner)
+            }
+
+            if let directory {
+                Text("Cached directory")
+                    .font(.headline)
+                Text("Locale \(directory.localeTag) • revision \(directory.refreshRevision)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+
+                ForEach(directory.resources) { resource in
+                    Text(resource.title)
+                        .font(.headline)
+                    Text("\(resource.specialtyLabel) • \(resource.regionLabel) • \(resource.availabilityLabel)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(resource.detail)
+                        .foregroundStyle(.secondary)
+                    Text(resource.handoffHint)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("No consult directory cached yet for \(context.feature.title). Load the localized support list to keep it available offline for later reopen.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Button(directory == nil ? "Load Support Directory" : "Refresh Support Directory") {
+                onRefreshDirectory()
+            }
+            .buttonStyle(.borderedProminent)
 
             Button("Return To \(context.feature.title)") {
                 onReturnToFeature()

@@ -179,6 +179,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var entitlementCacheState: EntitlementCacheState
     @Published private(set) var goalCacheState = GoalCacheState()
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
+    @Published private(set) var consultDirectoryCacheState = ConsultDirectoryCacheState()
     @Published private(set) var oralMeasurementFlowState = OralMeasurementFlowState()
     @Published private(set) var fatMeasurementFlowState = FatMeasurementFlowState()
     @Published private(set) var measurementRecoveryState: MeasurementRecoveryState?
@@ -215,6 +216,10 @@ final class AppShellStore: ObservableObject {
 
     func suggestion(for feature: FeatureKind) -> FeatureSuggestion? {
         suggestionCacheState.suggestion(for: feature)
+    }
+
+    func consultDirectory(for feature: FeatureKind) -> FeatureConsultDirectory? {
+        consultDirectoryCacheState.directory(for: feature)
     }
 
     func historyProjection(for feature: FeatureKind) -> FeatureHistoryProjection {
@@ -382,6 +387,17 @@ final class AppShellStore: ObservableObject {
                 for: feature,
                 goal: goal(for: feature)
             ),
+            cachedAtEpochMillis: nowEpochMillis()
+        )
+    }
+
+    func refreshConsultDirectory(
+        feature: FeatureKind,
+        localeTag: String = "en-US"
+    ) {
+        consultDirectoryCacheState = consultDirectoryCacheState.refresh(
+            feature: feature,
+            localeTag: localeTag,
             cachedAtEpochMillis: nowEpochMillis()
         )
     }

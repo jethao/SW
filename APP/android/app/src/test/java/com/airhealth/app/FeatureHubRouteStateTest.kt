@@ -278,4 +278,27 @@ class FeatureHubRouteStateTest {
         assertEquals("replay_unavailable", routeState.fatMeasurementFlowState.activeSession?.failureReason)
         assertNull(routeState.fatMeasurementFlowState.latestResult)
     }
+
+    @Test
+    fun consultDirectoryCacheCanBeLoadedAndReopenedPerFeature() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+        routeState.refreshConsultDirectory(FeatureKind.ORAL_HEALTH)
+
+        val oralDirectory = requireNotNull(routeState.consultDirectoryFor(FeatureKind.ORAL_HEALTH))
+        assertEquals("en-US", oralDirectory.localeTag)
+        assertEquals(1, oralDirectory.refreshRevision)
+        assertEquals(2, oralDirectory.resources.size)
+
+        routeState.returnToFeature()
+        routeState.openFeature(FeatureKind.FAT_BURNING)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+        routeState.refreshConsultDirectory(FeatureKind.FAT_BURNING)
+
+        val fatDirectory = requireNotNull(routeState.consultDirectoryFor(FeatureKind.FAT_BURNING))
+        assertEquals("Metabolic Performance Coach", fatDirectory.resources.first().title)
+        assertEquals("AirHealth Oral Wellness Coach", oralDirectory.resources.first().title)
+    }
 }
