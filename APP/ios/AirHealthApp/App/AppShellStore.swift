@@ -475,11 +475,11 @@ final class AppShellStore: ObservableObject {
         route = .setup(.discovering())
     }
 
-    func discoverDevice() {
+    func discoverDevice(device: DiscoveredDeviceSummary = PairingFlowState.defaultDevice()) {
         route = .setup(
             PairingFlowState(
                 step: .deviceDiscovered,
-                discoveredDevice: PairingFlowState.defaultDevice(),
+                discoveredDevice: device,
                 recoveryMessage: nil,
                 claimOwnerLabel: nil,
                 selectedMode: nil
@@ -504,7 +504,28 @@ final class AppShellStore: ObservableObject {
         )
     }
 
-    func markDeviceIncompatible() {
+    func inspectConnectingDevice() {
+        guard case let .setup(pairingState) = route,
+              let device = pairingState.discoveredDevice else {
+            return
+        }
+
+        if device.isFactoryOnlyFamily() {
+            markDeviceIncompatible(
+                recoveryMessage: "This device firmware is not supported in the AirHealth consumer app. Try another AirHealth device or update to consumer-ready firmware."
+            )
+        } else if device.hasUnauthorizedInternalState() {
+            markDeviceNotReady(
+                recoveryMessage: "This device is not ready for consumer setup yet. Reset it to a standard consumer state and try again."
+            )
+        } else {
+            confirmDeviceConnection()
+        }
+    }
+
+    func markDeviceIncompatible(
+        recoveryMessage: String = "This device is not supported in the AirHealth consumer app. Try another AirHealth device or check for an app update."
+    ) {
         guard case let .setup(pairingState) = route else {
             return
         }
@@ -514,14 +535,16 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .incompatible,
                 discoveredDevice: pairingState.discoveredDevice,
-                recoveryMessage: "This device is not supported in the AirHealth consumer app. Try another AirHealth device or check for an app update.",
+                recoveryMessage: recoveryMessage,
                 claimOwnerLabel: pairingState.claimOwnerLabel,
                 selectedMode: pairingState.selectedMode
             )
         )
     }
 
-    func markDeviceNotReady() {
+    func markDeviceNotReady(
+        recoveryMessage: String = "This device is not ready for setup yet. Keep it nearby, charge it if needed, and try again in a moment."
+    ) {
         guard case let .setup(pairingState) = route else {
             return
         }
@@ -531,7 +554,7 @@ final class AppShellStore: ObservableObject {
             PairingFlowState(
                 step: .notReady,
                 discoveredDevice: pairingState.discoveredDevice,
-                recoveryMessage: "This device is not ready for setup yet. Keep it nearby, charge it if needed, and try again in a moment.",
+                recoveryMessage: recoveryMessage,
                 claimOwnerLabel: pairingState.claimOwnerLabel,
                 selectedMode: pairingState.selectedMode
             )

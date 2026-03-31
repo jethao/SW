@@ -136,6 +136,18 @@ class MainActivity : AppCompatActivity() {
                             renderRoute()
                         }
                     )
+                    addView(
+                        secondaryButton("Simulate Restricted Firmware") {
+                            routeState.discoverDevice(PairingFlowState.factoryOnlyDevice())
+                            renderRoute()
+                        }
+                    )
+                    addView(
+                        secondaryButton("Simulate Internal Service State") {
+                            routeState.discoverDevice(PairingFlowState.unauthorizedInternalStateDevice())
+                            renderRoute()
+                        }
+                    )
                 }
 
                 PairingStep.DEVICE_DISCOVERED -> {
@@ -143,7 +155,7 @@ class MainActivity : AppCompatActivity() {
                     addView(bodyCopy("AirHealth device discovered and ready to connect."))
                     if (device != null) {
                         addView(bodyCopy("Device: ${device.name}"))
-                        addView(caption("Protocol: ${device.protocolVersion} • Signal: ${device.signalLabel}"))
+                        addView(caption("Protocol: ${device.consumerFacingProtocolLabel()} • Signal: ${device.signalLabel}"))
                     }
                     addView(
                         actionButton("Connect Device") {
@@ -166,8 +178,8 @@ class MainActivity : AppCompatActivity() {
                         addView(bodyCopy("Connecting to ${device.name}"))
                     }
                     addView(
-                        actionButton("Finish Connection") {
-                            routeState.confirmDeviceConnection()
+                        actionButton("Inspect Connected Device") {
+                            routeState.inspectConnectingDevice()
                             renderRoute()
                         }
                     )
@@ -222,7 +234,7 @@ class MainActivity : AppCompatActivity() {
                     addView(bodyCopy("Device connected. Continue by claiming the device and choosing the initial feature mode."))
                     if (device != null) {
                         addView(bodyCopy("Connected device: ${device.name}"))
-                        addView(caption("Protocol: ${device.protocolVersion}"))
+                        addView(caption("Protocol: ${device.consumerFacingProtocolLabel()}"))
                     }
                     addView(
                         actionButton("Claim Device") {

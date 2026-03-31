@@ -104,6 +104,12 @@ struct AppShellView: View {
                 onDiscoveryTimeout: {
                     store.markDiscoveryTimeout()
                 },
+                onDiscoverRestrictedFirmware: {
+                    store.discoverDevice(device: PairingFlowState.factoryOnlyDevice())
+                },
+                onDiscoverInternalServiceState: {
+                    store.discoverDevice(device: PairingFlowState.unauthorizedInternalStateDevice())
+                },
                 onConnectDevice: {
                     store.connectDiscoveredDevice()
                 },
@@ -132,7 +138,7 @@ struct AppShellView: View {
                     store.selectSetupMode(mode)
                 },
                 onFinishConnection: {
-                    store.confirmDeviceConnection()
+                    store.inspectConnectingDevice()
                 },
                 onRetryPermission: {
                     store.retrySetupAfterFailure()
@@ -460,6 +466,8 @@ private struct PairingSetupView: View {
     let onDenyBluetooth: () -> Void
     let onDiscoverDevice: () -> Void
     let onDiscoveryTimeout: () -> Void
+    let onDiscoverRestrictedFirmware: () -> Void
+    let onDiscoverInternalServiceState: () -> Void
     let onConnectDevice: () -> Void
     let onShowIncompatible: () -> Void
     let onShowNotReady: () -> Void
@@ -521,13 +529,21 @@ private struct PairingSetupView: View {
                     onDiscoveryTimeout()
                 }
                 .buttonStyle(.bordered)
+                Button("Simulate Restricted Firmware") {
+                    onDiscoverRestrictedFirmware()
+                }
+                .buttonStyle(.bordered)
+                Button("Simulate Internal Service State") {
+                    onDiscoverInternalServiceState()
+                }
+                .buttonStyle(.bordered)
 
             case .deviceDiscovered:
                 Text("AirHealth device discovered and ready to connect.")
                     .foregroundStyle(.secondary)
                 if let device = pairingState.discoveredDevice {
                     Text("Device: \(device.name)")
-                    Text("Protocol: \(device.protocolVersion) • Signal: \(device.signalLabel)")
+                    Text("Protocol: \(device.consumerFacingProtocolLabel()) • Signal: \(device.signalLabel)")
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
                 }
@@ -546,7 +562,7 @@ private struct PairingSetupView: View {
                 if let device = pairingState.discoveredDevice {
                     Text("Connecting to \(device.name)")
                 }
-                Button("Finish Connection") {
+                Button("Inspect Connected Device") {
                     onFinishConnection()
                 }
                 .buttonStyle(.borderedProminent)
@@ -588,7 +604,7 @@ private struct PairingSetupView: View {
                     .foregroundStyle(.secondary)
                 if let device = pairingState.discoveredDevice {
                     Text("Connected device: \(device.name)")
-                    Text("Protocol: \(device.protocolVersion)")
+                    Text("Protocol: \(device.consumerFacingProtocolLabel())")
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
                 }

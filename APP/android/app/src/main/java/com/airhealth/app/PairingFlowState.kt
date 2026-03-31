@@ -26,11 +26,34 @@ enum class SetupMode(
     FAT_BURNING("fat_burning", "Fat Burning"),
 }
 
+enum class DeviceProtocolFamily {
+    CONSUMER,
+    FACTORY_ONLY,
+    UNAUTHORIZED_INTERNAL,
+}
+
 data class DiscoveredDeviceSummary(
     val name: String,
     val protocolVersion: String,
     val signalLabel: String,
-)
+    val protocolFamily: DeviceProtocolFamily = DeviceProtocolFamily.CONSUMER,
+    val internalStateCode: String? = null,
+) {
+    fun consumerFacingProtocolLabel(): String {
+        return when (protocolFamily) {
+            DeviceProtocolFamily.CONSUMER -> protocolVersion
+            DeviceProtocolFamily.FACTORY_ONLY,
+            DeviceProtocolFamily.UNAUTHORIZED_INTERNAL,
+            -> "Restricted"
+        }
+    }
+
+    fun isFactoryOnlyFamily(): Boolean = protocolFamily == DeviceProtocolFamily.FACTORY_ONLY
+
+    fun hasUnauthorizedInternalState(): Boolean {
+        return protocolFamily == DeviceProtocolFamily.UNAUTHORIZED_INTERNAL || internalStateCode != null
+    }
+}
 
 data class PairingFlowState(
     val step: PairingStep,
@@ -53,6 +76,25 @@ data class PairingFlowState(
                 name = "AirHealth Breath Sensor",
                 protocolVersion = "consumer-v2",
                 signalLabel = "Strong",
+            )
+        }
+
+        fun factoryOnlyDevice(): DiscoveredDeviceSummary {
+            return DiscoveredDeviceSummary(
+                name = "AirHealth Service Sensor",
+                protocolVersion = "factory-v1",
+                signalLabel = "Strong",
+                protocolFamily = DeviceProtocolFamily.FACTORY_ONLY,
+            )
+        }
+
+        fun unauthorizedInternalStateDevice(): DiscoveredDeviceSummary {
+            return DiscoveredDeviceSummary(
+                name = "AirHealth Breath Sensor",
+                protocolVersion = "consumer-v2",
+                signalLabel = "Strong",
+                protocolFamily = DeviceProtocolFamily.UNAUTHORIZED_INTERNAL,
+                internalStateCode = "service_hold",
             )
         }
     }

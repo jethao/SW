@@ -61,4 +61,34 @@ class PairingRecoveryAnalyticsTest {
             routeState.pairingRecoveryAnalytics.events.last().payload(),
         )
     }
+
+    @Test
+    fun restrictedFirmwareAndInternalStateReuseConsumerSafeFailureCodes() {
+        val routeState = FeatureHubRouteState()
+
+        routeState.openSetup()
+        routeState.grantBluetoothPermission()
+        routeState.discoverDevice(PairingFlowState.factoryOnlyDevice())
+        routeState.connectDiscoveredDevice()
+        routeState.inspectConnectingDevice()
+        assertEquals(
+            linkedMapOf(
+                "failure_step" to "incompatible",
+                "recovery_action" to "surfaced",
+            ),
+            routeState.pairingRecoveryAnalytics.events.last().payload(),
+        )
+
+        routeState.restartDiscovery()
+        routeState.discoverDevice(PairingFlowState.unauthorizedInternalStateDevice())
+        routeState.connectDiscoveredDevice()
+        routeState.inspectConnectingDevice()
+        assertEquals(
+            linkedMapOf(
+                "failure_step" to "not_ready",
+                "recovery_action" to "surfaced",
+            ),
+            routeState.pairingRecoveryAnalytics.events.last().payload(),
+        )
+    }
 }
