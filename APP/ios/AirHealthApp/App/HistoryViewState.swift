@@ -56,7 +56,7 @@ extension SessionHistoryStoreState {
             OralHistoryViewItem(
                 sessionID: record.sessionID,
                 title: record.summaryTitle,
-                detail: record.summaryDetail,
+                detail: record.consumerSafeSummaryDetail(),
                 syncLabel: record.syncState.displayLabel,
                 progressLabel: chronologicalProgress[record.sessionID] ?? "Baseline session"
             )
@@ -92,7 +92,7 @@ extension SessionHistoryStoreState {
                 return FatHistoryViewItem(
                     sessionID: record.sessionID,
                     title: record.summaryTitle,
-                    detail: record.summaryDetail,
+                    detail: record.consumerSafeSummaryDetail(),
                     syncLabel: record.syncState.displayLabel,
                     finalDeltaLabel: "Final delta +\(finalDelta)",
                     bestDeltaLabel: "Best delta +\(runningBestDelta)"

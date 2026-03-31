@@ -52,6 +52,30 @@ class HistoryViewStateTest {
         assertEquals(3, surface.items.size)
     }
 
+    @Test
+    fun historySurfacesRedactInternalTokensFromConsumerDetails() {
+        val store = SessionHistoryStoreState(
+            records = listOf(
+                oralRecord("oral-1", 1_000L, SessionSyncState.PENDING),
+                fatRecord("fat-1", "fat-token-1", 2_000L, SessionSyncState.SYNCED),
+            ),
+        )
+
+        val oralSurface = store.oralHistorySurface()
+        val fatSurface = store.fatHistorySurface()
+
+        assertEquals(
+            "Saved oral trend summary for later history review.",
+            oralSurface.items.single().detail,
+        )
+        assertEquals(
+            "Saved fat-burning trend summary for later history review.",
+            fatSurface.items.single().detail,
+        )
+        assertTrue(oralSurface.items.single().detail.contains("token", ignoreCase = true).not())
+        assertTrue(fatSurface.items.single().detail.contains("token", ignoreCase = true).not())
+    }
+
     private fun oralRecord(
         sessionId: String,
         recordedAtEpochMillis: Long,
