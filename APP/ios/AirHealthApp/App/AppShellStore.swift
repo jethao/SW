@@ -181,6 +181,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
     @Published private(set) var oralMeasurementFlowState = OralMeasurementFlowState()
     @Published private(set) var fatMeasurementFlowState = FatMeasurementFlowState()
+    @Published private(set) var measurementRecoveryState: MeasurementRecoveryState?
     @Published private(set) var sessionHistoryStoreState = SessionHistoryStoreState()
     @Published private(set) var sessionSyncQueueState = SessionSyncQueueState()
     @Published private(set) var exportAuditStoreState = ExportAuditStoreState()
@@ -395,6 +396,9 @@ final class AppShellStore: ObservableObject {
         if feature != .fatBurning {
             fatMeasurementFlowState = FatMeasurementFlowState()
         }
+        measurementRecoveryState = measurementRecoveryState?.feature == feature && measurementRecoveryState?.stage == .recovered
+            ? measurementRecoveryState
+            : nil
         route = .featureHub(
             SelectedFeatureContext(
                 feature: feature,
@@ -738,6 +742,7 @@ final class AppShellStore: ObservableObject {
 
         oralMeasurementFlowState = OralMeasurementFlowState()
         fatMeasurementFlowState = FatMeasurementFlowState()
+        measurementRecoveryState = nil
         route = .home
     }
 
@@ -747,6 +752,7 @@ final class AppShellStore: ObservableObject {
             return
         }
 
+        measurementRecoveryState = nil
         oralMeasurementFlowState = OralMeasurementFlowCoordinator.start(
             state: oralMeasurementFlowState,
             sessionID: nextMeasurementSessionID(feature: context.feature)
@@ -791,6 +797,7 @@ final class AppShellStore: ObservableObject {
             return
         }
 
+        measurementRecoveryState = nil
         fatMeasurementFlowState = FatMeasurementFlowCoordinator.start(
             state: fatMeasurementFlowState,
             sessionID: nextMeasurementSessionID(feature: context.feature)
@@ -843,6 +850,168 @@ final class AppShellStore: ObservableObject {
     func cancelFatMeasurement() {
         fatMeasurementFlowState = FatMeasurementFlowCoordinator.cancel(
             state: fatMeasurementFlowState
+        )
+    }
+
+    func measurementRecoveryState(for feature: FeatureKind) -> MeasurementRecoveryState? {
+        guard let measurementRecoveryState, measurementRecoveryState.feature == feature else {
+            return nil
+        }
+        return measurementRecoveryState
+    }
+
+    func disconnectActiveMeasurement() {
+        guard let context = currentFeatureContext() else {
+            return
+        }
+
+        switch context.feature {
+        case .oralHealth:
+            guard let session = oralMeasurementFlowState.activeSession else {
+                return
+            }
+            let disconnectedSession = MeasurementSessionCoordinator.reduce(
+                state: session,
+                event: .deviceDisconnected(replayRequired: true)
+            )
+            oralMeasurementFlowState = OralMeasurementFlowState(
+                activeSession: disconnectedSession,
+                baselineProgress: oralMeasurementFlowState.baselineProgress,
+                latestResult: oralMeasurementFlowState.latestResult,
+                recoveryMessage: "Session interrupted. Reconnect to replay the device result before failing the session."
+            )
+            measurementRecoveryState = .interrupted(
+                feature: context.feature,
+                sessionID: disconnectedSession.sessionID
+            )
+        case .fatBurning:
+            guard let session = fatMeasurementFlowState.activeSession else {
+                return
+            }
+            let disconnectedSession = MeasurementSessionCoordinator.reduce(
+                state: session,
+                event: .deviceDisconnected(replayRequired: true)
+            )
+            fatMeasurementFlowState = FatMeasurementFlowState(
+                activeSession: disconnectedSession,
+                readingCount: fatMeasurementFlowState.readingCount,
+                targetDeltaPercent: fatMeasurementFlowState.targetDeltaPercent,
+                currentDeltaPercent: fatMeasurementFlowState.currentDeltaPercent,
+                bestDeltaPercent: fatMeasurementFlowState.bestDeltaPercent,
+                latestResult: fatMeasurementFlowState.latestResult,
+                recoveryMessage: "Session interrupted. Reconnect to replay the device result before failing the session.",
+                finishRequested: false
+            )
+            measurementRecoveryState = .interrupted(
+                feature: context.feature,
+                sessionID: disconnectedSession.sessionID
+            )
+        }
+    }
+
+    func beginReconnectReplay() {
+        guard let recovery = measurementRecoveryState else {
+            return
+        }
+        measurementRecoveryState = MeasurementRecoveryState(
+            feature: recovery.feature,
+            sessionID: recovery.sessionID,
+            stage: .reconnecting,
+            replayRequired: recovery.replayRequired,
+            statusMessage: "Reconnected. Querying the device for the terminal status by session ID."
+        )
+    }
+
+    func recoverMeasurementReplay() {
+        guard let recovery = measurementRecoveryState else {
+            return
+        }
+
+        switch recovery.feature {
+        case .oralHealth:
+            let score = 57 + oralMeasurementFlowState.baselineProgress.completedValidSessions
+            oralMeasurementFlowState = OralMeasurementFlowCoordinator.complete(
+                state: oralMeasurementFlowState,
+                oralHealthScore: score
+            )
+            measurementRecoveryState = MeasurementRecoveryState(
+                feature: recovery.feature,
+                sessionID: recovery.sessionID,
+                stage: .recovered,
+                replayRequired: false,
+                statusMessage: "Replay succeeded. The device returned a completed oral result for this session.",
+                recoveredResultToken: oralMeasurementFlowState.activeSession?.terminalSummary?.resultToken
+            )
+        case .fatBurning:
+            let finalDelta = max((fatMeasurementFlowState.bestDeltaPercent ?? 9) - 2, 4)
+            fatMeasurementFlowState = FatMeasurementFlowCoordinator.complete(
+                state: FatMeasurementFlowState(
+                    activeSession: fatMeasurementFlowState.activeSession,
+                    readingCount: fatMeasurementFlowState.readingCount,
+                    targetDeltaPercent: fatMeasurementFlowState.targetDeltaPercent,
+                    currentDeltaPercent: fatMeasurementFlowState.currentDeltaPercent,
+                    bestDeltaPercent: fatMeasurementFlowState.bestDeltaPercent,
+                    latestResult: fatMeasurementFlowState.latestResult,
+                    recoveryMessage: fatMeasurementFlowState.recoveryMessage,
+                    finishRequested: true
+                ),
+                finalDeltaPercent: finalDelta
+            )
+            measurementRecoveryState = MeasurementRecoveryState(
+                feature: recovery.feature,
+                sessionID: recovery.sessionID,
+                stage: .recovered,
+                replayRequired: false,
+                statusMessage: "Replay succeeded. The device returned a completed fat-burning summary for this session.",
+                recoveredResultToken: fatMeasurementFlowState.activeSession?.terminalSummary?.resultToken
+            )
+        }
+    }
+
+    func failMeasurementReplay() {
+        guard let recovery = measurementRecoveryState else {
+            return
+        }
+
+        switch recovery.feature {
+        case .oralHealth:
+            guard let session = oralMeasurementFlowState.activeSession else {
+                return
+            }
+            oralMeasurementFlowState = OralMeasurementFlowState(
+                activeSession: MeasurementSessionCoordinator.reduce(
+                    state: session,
+                    event: .measurementFailed(reasonCode: "replay_unavailable")
+                ),
+                baselineProgress: oralMeasurementFlowState.baselineProgress,
+                latestResult: nil,
+                recoveryMessage: "Replay did not return a completed result. This session stays failed and unsaved."
+            )
+        case .fatBurning:
+            guard let session = fatMeasurementFlowState.activeSession else {
+                return
+            }
+            fatMeasurementFlowState = FatMeasurementFlowState(
+                activeSession: MeasurementSessionCoordinator.reduce(
+                    state: session,
+                    event: .measurementFailed(reasonCode: "replay_unavailable")
+                ),
+                readingCount: fatMeasurementFlowState.readingCount,
+                targetDeltaPercent: fatMeasurementFlowState.targetDeltaPercent,
+                currentDeltaPercent: fatMeasurementFlowState.currentDeltaPercent,
+                bestDeltaPercent: fatMeasurementFlowState.bestDeltaPercent,
+                latestResult: nil,
+                recoveryMessage: "Replay did not return a completed summary. This session stays failed and unsaved.",
+                finishRequested: false
+            )
+        }
+
+        measurementRecoveryState = MeasurementRecoveryState(
+            feature: recovery.feature,
+            sessionID: recovery.sessionID,
+            stage: .failed,
+            replayRequired: false,
+            statusMessage: "Replay failed. No completed device result could be recovered for this session."
         )
     }
 

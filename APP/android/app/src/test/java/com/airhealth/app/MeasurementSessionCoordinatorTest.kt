@@ -159,4 +159,33 @@ class MeasurementSessionCoordinatorTest {
         assertFalse(state.recoveryMarker.replayRequired)
         assertEquals("out-of-order-token", state.terminalSummary?.resultToken)
     }
+
+    @Test
+    fun disconnectCanStillReconcileToCompleteWhenReplayReturnsTerminalSummary() {
+        var state = MeasurementSessionState.begin(
+            sessionId = "session-oral-004",
+            feature = FeatureKind.ORAL_HEALTH,
+        )
+
+        state = MeasurementSessionCoordinator.reduce(state, MeasurementBleEvent.MeasurementStarted)
+        state = MeasurementSessionCoordinator.reduce(
+            state,
+            MeasurementBleEvent.DeviceDisconnected(replayRequired = true),
+        )
+
+        assertEquals(MeasurementSessionPhase.PAUSED, state.phase)
+        assertTrue(state.recoveryMarker.replayRequired)
+
+        state = MeasurementSessionCoordinator.reduce(
+            state,
+            MeasurementBleEvent.TerminalReadingAvailable(
+                MeasurementTerminalSummary(resultToken = "replayed-terminal-token"),
+            ),
+        )
+        state = MeasurementSessionCoordinator.reduce(state, MeasurementBleEvent.TerminalReadingConfirmed)
+
+        assertEquals(MeasurementSessionPhase.COMPLETE, state.phase)
+        assertEquals("replayed-terminal-token", state.terminalSummary?.resultToken)
+        assertFalse(state.recoveryMarker.replayRequired)
+    }
 }

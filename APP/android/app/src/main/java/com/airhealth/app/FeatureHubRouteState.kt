@@ -68,6 +68,8 @@ class FeatureHubRouteState(
         private set
     var fatMeasurementFlowState: FatMeasurementFlowState = FatMeasurementFlowState()
         private set
+    var measurementRecoveryState: MeasurementRecoveryState? = null
+        private set
     var sessionHistoryStoreState: SessionHistoryStoreState = SessionHistoryStoreState()
         private set
     var sessionSyncQueueState: SessionSyncQueueState = SessionSyncQueueState()
@@ -169,6 +171,8 @@ class FeatureHubRouteState(
         if (feature != FeatureKind.FAT_BURNING) {
             fatMeasurementFlowState = FatMeasurementFlowState()
         }
+        measurementRecoveryState = measurementRecoveryState
+            ?.takeIf { it.feature == feature && it.stage == MeasurementRecoveryStage.RECOVERED }
         route = FeatureHubRoute.Feature(
             SelectedFeatureContext(
                 feature = feature,
@@ -406,12 +410,14 @@ class FeatureHubRouteState(
         }
         oralMeasurementFlowState = OralMeasurementFlowState()
         fatMeasurementFlowState = FatMeasurementFlowState()
+        measurementRecoveryState = null
         route = FeatureHubRoute.Home
     }
 
     fun startOralMeasurement() {
         val currentContext = currentFeatureContext() ?: return
         if (currentContext.feature != FeatureKind.ORAL_HEALTH) return
+        measurementRecoveryState = null
         oralMeasurementFlowState = OralMeasurementFlowCoordinator.start(
             state = oralMeasurementFlowState,
             sessionId = nextMeasurementSessionId(currentContext.feature),
@@ -453,6 +459,7 @@ class FeatureHubRouteState(
     fun startFatMeasurement() {
         val currentContext = currentFeatureContext() ?: return
         if (currentContext.feature != FeatureKind.FAT_BURNING) return
+        measurementRecoveryState = null
         fatMeasurementFlowState = FatMeasurementFlowCoordinator.start(
             state = fatMeasurementFlowState,
             sessionId = nextMeasurementSessionId(currentContext.feature),
@@ -501,6 +508,126 @@ class FeatureHubRouteState(
     fun cancelFatMeasurement() {
         fatMeasurementFlowState = FatMeasurementFlowCoordinator.cancel(
             state = fatMeasurementFlowState,
+        )
+    }
+
+    fun measurementRecoveryStateFor(feature: FeatureKind): MeasurementRecoveryState? {
+        return measurementRecoveryState?.takeIf { it.feature == feature }
+    }
+
+    fun disconnectActiveMeasurement() {
+        val currentContext = currentFeatureContext() ?: return
+        when (currentContext.feature) {
+            FeatureKind.ORAL_HEALTH -> {
+                val session = oralMeasurementFlowState.activeSession ?: return
+                val disconnectedSession = MeasurementSessionCoordinator.reduce(
+                    state = session,
+                    event = MeasurementBleEvent.DeviceDisconnected(replayRequired = true),
+                )
+                oralMeasurementFlowState = oralMeasurementFlowState.copy(
+                    activeSession = disconnectedSession,
+                    recoveryMessage = "Session interrupted. Reconnect to replay the device result before failing the session.",
+                )
+                measurementRecoveryState = MeasurementRecoveryState.interrupted(
+                    feature = currentContext.feature,
+                    sessionId = disconnectedSession.sessionId,
+                )
+            }
+
+            FeatureKind.FAT_BURNING -> {
+                val session = fatMeasurementFlowState.activeSession ?: return
+                val disconnectedSession = MeasurementSessionCoordinator.reduce(
+                    state = session,
+                    event = MeasurementBleEvent.DeviceDisconnected(replayRequired = true),
+                )
+                fatMeasurementFlowState = fatMeasurementFlowState.copy(
+                    activeSession = disconnectedSession,
+                    recoveryMessage = "Session interrupted. Reconnect to replay the device result before failing the session.",
+                    finishRequested = false,
+                )
+                measurementRecoveryState = MeasurementRecoveryState.interrupted(
+                    feature = currentContext.feature,
+                    sessionId = disconnectedSession.sessionId,
+                )
+            }
+        }
+    }
+
+    fun beginReconnectReplay() {
+        val recovery = measurementRecoveryState ?: return
+        measurementRecoveryState = recovery.copy(
+            stage = MeasurementRecoveryStage.RECONNECTING,
+            statusMessage = "Reconnected. Querying the device for the terminal status by session ID.",
+        )
+    }
+
+    fun recoverMeasurementReplay() {
+        val recovery = measurementRecoveryState ?: return
+        when (recovery.feature) {
+            FeatureKind.ORAL_HEALTH -> {
+                val score = 57 + oralMeasurementFlowState.baselineProgress.completedValidSessions
+                oralMeasurementFlowState = OralMeasurementFlowCoordinator.complete(
+                    state = oralMeasurementFlowState,
+                    oralHealthScore = score,
+                ).copy(
+                    recoveryMessage = "Recovered the completed oral result after reconnect.",
+                )
+                measurementRecoveryState = measurementRecoveryStateFor(recovery.feature)?.copy(
+                    stage = MeasurementRecoveryStage.RECOVERED,
+                    statusMessage = "Replay succeeded. The device returned a completed oral result for this session.",
+                    recoveredResultToken = oralMeasurementFlowState.activeSession?.terminalSummary?.resultToken,
+                )
+            }
+
+            FeatureKind.FAT_BURNING -> {
+                val finalDelta = ((fatMeasurementFlowState.bestDeltaPercent ?: 9) - 2).coerceAtLeast(4)
+                fatMeasurementFlowState = FatMeasurementFlowCoordinator.complete(
+                    state = fatMeasurementFlowState.copy(finishRequested = true),
+                    finalDeltaPercent = finalDelta,
+                ).copy(
+                    recoveryMessage = "Recovered the completed fat-burning summary after reconnect.",
+                )
+                measurementRecoveryState = measurementRecoveryStateFor(recovery.feature)?.copy(
+                    stage = MeasurementRecoveryStage.RECOVERED,
+                    statusMessage = "Replay succeeded. The device returned a completed fat-burning summary for this session.",
+                    recoveredResultToken = fatMeasurementFlowState.activeSession?.terminalSummary?.resultToken,
+                )
+            }
+        }
+    }
+
+    fun failMeasurementReplay() {
+        val recovery = measurementRecoveryState ?: return
+        when (recovery.feature) {
+            FeatureKind.ORAL_HEALTH -> {
+                val session = oralMeasurementFlowState.activeSession ?: return
+                oralMeasurementFlowState = oralMeasurementFlowState.copy(
+                    activeSession = MeasurementSessionCoordinator.reduce(
+                        state = session,
+                        event = MeasurementBleEvent.MeasurementFailed(reasonCode = "replay_unavailable"),
+                    ),
+                    latestResult = null,
+                    recoveryMessage = "Replay did not return a completed result. This session stays failed and unsaved.",
+                )
+            }
+
+            FeatureKind.FAT_BURNING -> {
+                val session = fatMeasurementFlowState.activeSession ?: return
+                fatMeasurementFlowState = fatMeasurementFlowState.copy(
+                    activeSession = MeasurementSessionCoordinator.reduce(
+                        state = session,
+                        event = MeasurementBleEvent.MeasurementFailed(reasonCode = "replay_unavailable"),
+                    ),
+                    latestResult = null,
+                    recoveryMessage = "Replay did not return a completed summary. This session stays failed and unsaved.",
+                    finishRequested = false,
+                )
+            }
+        }
+
+        measurementRecoveryState = measurementRecoveryStateFor(recovery.feature)?.copy(
+            stage = MeasurementRecoveryStage.FAILED,
+            statusMessage = "Replay failed. No completed device result could be recovered for this session.",
         )
     }
 

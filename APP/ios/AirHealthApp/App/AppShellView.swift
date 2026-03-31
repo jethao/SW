@@ -257,6 +257,7 @@ struct AppShellView: View {
                 OralMeasurementView(
                     context: context,
                     flowState: store.oralMeasurementFlowState,
+                    recoveryState: store.measurementRecoveryState(for: context.feature),
                     onStartSession: {
                         store.startOralMeasurement()
                     },
@@ -272,8 +273,20 @@ struct AppShellView: View {
                     onInvalidSample: {
                         store.markOralInvalidSample()
                     },
+                    onDisconnect: {
+                        store.disconnectActiveMeasurement()
+                    },
                     onCancelSession: {
                         store.cancelOralMeasurement()
+                    },
+                    onBeginReconnectReplay: {
+                        store.beginReconnectReplay()
+                    },
+                    onRecoverReplay: {
+                        store.recoverMeasurementReplay()
+                    },
+                    onFailReplay: {
+                        store.failMeasurementReplay()
                     },
                     onReturnToFeature: {
                         store.returnToFeature()
@@ -286,6 +299,7 @@ struct AppShellView: View {
                 FatMeasurementView(
                     context: context,
                     flowState: store.fatMeasurementFlowState,
+                    recoveryState: store.measurementRecoveryState(for: context.feature),
                     onStartSession: {
                         store.startFatMeasurement()
                     },
@@ -304,8 +318,20 @@ struct AppShellView: View {
                     onFailSession: { reasonCode in
                         store.failFatMeasurement(reasonCode: reasonCode)
                     },
+                    onDisconnect: {
+                        store.disconnectActiveMeasurement()
+                    },
                     onCancelSession: {
                         store.cancelFatMeasurement()
+                    },
+                    onBeginReconnectReplay: {
+                        store.beginReconnectReplay()
+                    },
+                    onRecoverReplay: {
+                        store.recoverMeasurementReplay()
+                    },
+                    onFailReplay: {
+                        store.failMeasurementReplay()
                     },
                     onReturnToFeature: {
                         store.returnToFeature()
@@ -886,12 +912,17 @@ private struct FeatureActionsView: View {
 private struct OralMeasurementView: View {
     let context: SelectedFeatureContext
     let flowState: OralMeasurementFlowState
+    let recoveryState: MeasurementRecoveryState?
     let onStartSession: () -> Void
     let onWarmupPassed: () -> Void
     let onWarmupFailed: () -> Void
     let onCaptureValidSample: () -> Void
     let onInvalidSample: () -> Void
+    let onDisconnect: () -> Void
     let onCancelSession: () -> Void
+    let onBeginReconnectReplay: () -> Void
+    let onRecoverReplay: () -> Void
+    let onFailReplay: () -> Void
     let onReturnToFeature: () -> Void
     let onReturnHome: () -> Void
 
@@ -912,6 +943,14 @@ private struct OralMeasurementView: View {
                 .font(.headline)
             Text(flowState.baselineProgress.detailLabel)
                 .foregroundStyle(.secondary)
+            if let recoveryState {
+                RecoveryCardView(
+                    recoveryState: recoveryState,
+                    onBeginReconnectReplay: onBeginReconnectReplay,
+                    onRecoverReplay: onRecoverReplay,
+                    onFailReplay: onFailReplay
+                )
+            }
 
             switch flowState.step {
             case .preparing:
@@ -941,6 +980,10 @@ private struct OralMeasurementView: View {
                 .buttonStyle(.borderedProminent)
                 Button("Invalid Sample") {
                     onInvalidSample()
+                }
+                .buttonStyle(.bordered)
+                Button("Simulate Disconnect") {
+                    onDisconnect()
                 }
                 .buttonStyle(.bordered)
                 Button("Cancel Session") {
@@ -996,13 +1039,18 @@ private struct OralMeasurementView: View {
 private struct FatMeasurementView: View {
     let context: SelectedFeatureContext
     let flowState: FatMeasurementFlowState
+    let recoveryState: MeasurementRecoveryState?
     let onStartSession: () -> Void
     let onBaselineLocked: () -> Void
     let onRecordNextReading: (Int) -> Void
     let onRequestFinish: () -> Void
     let onReceiveFinalSummary: (Int) -> Void
     let onFailSession: (String) -> Void
+    let onDisconnect: () -> Void
     let onCancelSession: () -> Void
+    let onBeginReconnectReplay: () -> Void
+    let onRecoverReplay: () -> Void
+    let onFailReplay: () -> Void
     let onReturnToFeature: () -> Void
     let onReturnHome: () -> Void
 
@@ -1029,6 +1077,14 @@ private struct FatMeasurementView: View {
                     : "Coaching starts with breath, hold, and blow guidance before the first valid baseline reading locks at 0%."
             )
             .foregroundStyle(.secondary)
+            if let recoveryState {
+                RecoveryCardView(
+                    recoveryState: recoveryState,
+                    onBeginReconnectReplay: onBeginReconnectReplay,
+                    onRecoverReplay: onRecoverReplay,
+                    onFailReplay: onFailReplay
+                )
+            }
 
             switch flowState.step {
             case .preparing:
@@ -1070,6 +1126,10 @@ private struct FatMeasurementView: View {
                     onFailSession("invalid_sample")
                 }
                 .buttonStyle(.bordered)
+                Button("Simulate Disconnect") {
+                    onDisconnect()
+                }
+                .buttonStyle(.bordered)
                 Button("Cancel Session") {
                     onCancelSession()
                 }
@@ -1087,7 +1147,7 @@ private struct FatMeasurementView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 Button("Disconnect Before Summary") {
-                    onFailSession("disconnect")
+                    onDisconnect()
                 }
                 .buttonStyle(.bordered)
             case .complete:
@@ -1133,6 +1193,64 @@ private struct FatMeasurementView: View {
             Spacer()
         }
         .padding()
+    }
+}
+
+private struct RecoveryCardView: View {
+    let recoveryState: MeasurementRecoveryState
+    let onBeginReconnectReplay: () -> Void
+    let onRecoverReplay: () -> Void
+    let onFailReplay: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recovery status")
+                .font(.headline)
+            Text(recoveryState.statusMessage)
+                .foregroundStyle(.secondary)
+            Text("Recovery stage: \(recoveryStageLabel) • Session \(recoveryState.sessionID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+            if let recoveredResultToken = recoveryState.recoveredResultToken {
+                Text("Recovered token: \(recoveredResultToken)")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+            switch recoveryState.stage {
+            case .interrupted:
+                Button("Reconnect And Query Session") {
+                    onBeginReconnectReplay()
+                }
+                .buttonStyle(.borderedProminent)
+            case .reconnecting:
+                Button("Replay Completed Result") {
+                    onRecoverReplay()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Replay Failed") {
+                    onFailReplay()
+                }
+                .buttonStyle(.bordered)
+            case .recovered, .failed:
+                EmptyView()
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var recoveryStageLabel: String {
+        switch recoveryState.stage {
+        case .interrupted:
+            return "interrupted"
+        case .reconnecting:
+            return "reconnecting"
+        case .recovered:
+            return "recovered"
+        case .failed:
+            return "failed"
+        }
     }
 }
 
