@@ -9,6 +9,9 @@ data class ConsultDirectoryResource(
     val availabilityLabel: String,
     val detail: String,
     val handoffHint: String,
+    val externalUrl: String,
+    val launchLabel: String,
+    val leaveAirHealthMessage: String,
 )
 
 data class FeatureConsultDirectory(
@@ -42,6 +45,34 @@ data class ConsultDirectoryCacheState(
     }
 }
 
+data class PendingConsultHandoff(
+    val resource: ConsultDirectoryResource,
+    val requestedAtEpochMillis: Long,
+)
+
+data class ConsultHandoffEvent(
+    val feature: String,
+    val resourceTitle: String,
+    val targetHost: String,
+    val launchLabel: String,
+)
+
+class ConsultHandoffAnalytics {
+    private val recordedEvents = mutableListOf<ConsultHandoffEvent>()
+
+    val events: List<ConsultHandoffEvent>
+        get() = recordedEvents
+
+    fun recordLaunched(resource: ConsultDirectoryResource) {
+        recordedEvents += ConsultHandoffEvent(
+            feature = resource.feature.routeId,
+            resourceTitle = resource.title,
+            targetHost = resource.externalUrl.substringAfter("://").substringBefore("/"),
+            launchLabel = resource.launchLabel,
+        )
+    }
+}
+
 fun consultDirectoryTemplatesFor(
     feature: FeatureKind,
     localeTag: String,
@@ -57,6 +88,9 @@ fun consultDirectoryTemplatesFor(
                 availabilityLabel = "Weekday virtual consults",
                 detail = "General oral-health coaching and trend interpretation support for recurring gum-sensitivity or hygiene questions.",
                 handoffHint = "Directory-only support listing. External handoff stays in the next consult ticket.",
+                externalUrl = "https://care.airhealth.app/oral-wellness-coach",
+                launchLabel = "Open virtual consult",
+                leaveAirHealthMessage = "This opens the AirHealth care network in your browser. AirHealth keeps your measurement details here unless you choose to share them later.",
             ),
             ConsultDirectoryResource(
                 feature = feature,
@@ -67,6 +101,9 @@ fun consultDirectoryTemplatesFor(
                 availabilityLabel = "New-patient screening",
                 detail = "Consumer-facing preventive follow-up option for baseline changes that may need an in-person dental screening.",
                 handoffHint = "Keep session details inside AirHealth until the user explicitly leaves the app.",
+                externalUrl = "https://providers.airhealth.app/preventive-dentistry",
+                launchLabel = "Open clinic site",
+                leaveAirHealthMessage = "You are leaving AirHealth for a partner clinic site. No session payload is sent with this handoff.",
             ),
         )
 
@@ -80,6 +117,9 @@ fun consultDirectoryTemplatesFor(
                 availabilityLabel = "Evening video sessions",
                 detail = "Consumer-safe coaching resource for interpreting repeated fat-burning trend changes across training blocks.",
                 handoffHint = "Directory-only support listing. External handoff stays in the next consult ticket.",
+                externalUrl = "https://care.airhealth.app/metabolic-performance",
+                launchLabel = "Open coach profile",
+                leaveAirHealthMessage = "This opens the AirHealth care network in your browser. AirHealth keeps your device and session details inside the app.",
             ),
             ConsultDirectoryResource(
                 feature = feature,
@@ -90,6 +130,9 @@ fun consultDirectoryTemplatesFor(
                 availabilityLabel = "Next-week availability",
                 detail = "Nutrition-focused support option for users tracking recovery or training-day pattern changes.",
                 handoffHint = "No measurement payload leaves AirHealth in this ticket.",
+                externalUrl = "https://partners.airhealth.app/recovery-nutrition",
+                launchLabel = "Open advisor site",
+                leaveAirHealthMessage = "You are leaving AirHealth for an external advisor site. The handoff only carries the destination link, not your measurement history.",
             ),
         )
     }

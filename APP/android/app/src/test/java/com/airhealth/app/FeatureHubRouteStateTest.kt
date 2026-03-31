@@ -301,4 +301,36 @@ class FeatureHubRouteStateTest {
         assertEquals("Metabolic Performance Coach", fatDirectory.resources.first().title)
         assertEquals("AirHealth Oral Wellness Coach", oralDirectory.resources.first().title)
     }
+
+    @Test
+    fun consultHandoffRequiresExplicitConfirmationBeforeLaunch() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+        routeState.refreshConsultDirectory(FeatureKind.ORAL_HEALTH)
+
+        val resourceTitle = requireNotNull(
+            routeState.consultDirectoryFor(FeatureKind.ORAL_HEALTH)
+                ?.resources
+                ?.first()
+                ?.title,
+        )
+
+        routeState.beginConsultHandoff(
+            feature = FeatureKind.ORAL_HEALTH,
+            resourceTitle = resourceTitle,
+        )
+
+        assertEquals(resourceTitle, routeState.pendingConsultHandoff?.resource?.title)
+
+        val launchedUrl = routeState.confirmConsultHandoff()
+
+        assertEquals("https://care.airhealth.app/oral-wellness-coach", launchedUrl)
+        assertNull(routeState.pendingConsultHandoff)
+        assertEquals(
+            "AirHealth Oral Wellness Coach",
+            routeState.consultHandoffAnalytics.events.last().resourceTitle,
+        )
+    }
 }

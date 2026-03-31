@@ -180,6 +180,8 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var goalCacheState = GoalCacheState()
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
     @Published private(set) var consultDirectoryCacheState = ConsultDirectoryCacheState()
+    @Published private(set) var pendingConsultHandoff: PendingConsultHandoff?
+    @Published private(set) var consultHandoffEvents: [ConsultHandoffEvent] = []
     @Published private(set) var oralMeasurementFlowState = OralMeasurementFlowState()
     @Published private(set) var fatMeasurementFlowState = FatMeasurementFlowState()
     @Published private(set) var measurementRecoveryState: MeasurementRecoveryState?
@@ -400,12 +402,42 @@ final class AppShellStore: ObservableObject {
             localeTag: localeTag,
             cachedAtEpochMillis: nowEpochMillis()
         )
+        pendingConsultHandoff = nil
+    }
+
+    func beginConsultHandoff(resource: ConsultDirectoryResource) {
+        pendingConsultHandoff = PendingConsultHandoff(
+            resource: resource,
+            requestedAtEpochMillis: nowEpochMillis()
+        )
+    }
+
+    func cancelConsultHandoff() {
+        pendingConsultHandoff = nil
+    }
+
+    func confirmConsultHandoff() -> URL? {
+        guard let pendingConsultHandoff else {
+            return nil
+        }
+
+        self.pendingConsultHandoff = nil
+        consultHandoffEvents.append(
+            ConsultHandoffEvent(
+                feature: pendingConsultHandoff.resource.feature.rawValue,
+                resourceTitle: pendingConsultHandoff.resource.title,
+                targetHost: pendingConsultHandoff.resource.externalURL.host ?? pendingConsultHandoff.resource.externalURL.absoluteString,
+                launchLabel: pendingConsultHandoff.resource.launchLabel
+            )
+        )
+        return pendingConsultHandoff.resource.externalURL
     }
 
     func openFeature(_ feature: FeatureKind) {
         var nextLockState = actionLockState
         nextLockState.clearBlockedAttempt()
         actionLockState = nextLockState
+        pendingConsultHandoff = nil
         if feature != .oralHealth {
             oralMeasurementFlowState = OralMeasurementFlowState()
         }
@@ -744,6 +776,7 @@ final class AppShellStore: ObservableObject {
         var nextLockState = actionLockState
         nextLockState.release()
         actionLockState = nextLockState
+        pendingConsultHandoff = nil
         route = .featureHub(context)
     }
 
@@ -756,6 +789,7 @@ final class AppShellStore: ObservableObject {
         }
         actionLockState = nextLockState
 
+        pendingConsultHandoff = nil
         oralMeasurementFlowState = OralMeasurementFlowState()
         fatMeasurementFlowState = FatMeasurementFlowState()
         measurementRecoveryState = nil
