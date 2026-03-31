@@ -213,4 +213,30 @@ class FeatureHubRouteStateTest {
             routeState.oralMeasurementFlowState.activeSession?.phase,
         )
     }
+
+    @Test
+    fun fatMeasurementRouteKeepsBestAndFinalDeltaDistinct() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.FAT_BURNING)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.startFatMeasurement()
+        routeState.lockFatBaseline()
+        routeState.recordNextFatReading(11)
+        routeState.recordNextFatReading(8)
+        routeState.requestFatFinish()
+        routeState.completeFatMeasurement(6)
+
+        assertEquals(FatMeasurementFlowStep.COMPLETE, routeState.fatMeasurementFlowState.step)
+        assertEquals(11, routeState.fatMeasurementFlowState.bestDeltaPercent)
+        assertEquals(6, routeState.fatMeasurementFlowState.currentDeltaPercent)
+        assertEquals(
+            "Best Fat Burn Delta +11%",
+            routeState.fatMeasurementFlowState.latestResult?.bestDeltaLabel,
+        )
+        assertEquals(
+            "Final Fat Burn Delta +6%",
+            routeState.fatMeasurementFlowState.latestResult?.finalDeltaLabel,
+        )
+    }
 }

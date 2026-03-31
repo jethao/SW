@@ -282,6 +282,38 @@ struct AppShellView: View {
                         store.returnHome()
                     }
                 )
+            } else if action == .measure && context.feature == .fatBurning {
+                FatMeasurementView(
+                    context: context,
+                    flowState: store.fatMeasurementFlowState,
+                    onStartSession: {
+                        store.startFatMeasurement()
+                    },
+                    onBaselineLocked: {
+                        store.lockFatBaseline()
+                    },
+                    onRecordNextReading: { delta in
+                        store.recordNextFatReading(deltaPercent: delta)
+                    },
+                    onRequestFinish: {
+                        store.requestFatFinish()
+                    },
+                    onReceiveFinalSummary: { finalDelta in
+                        store.completeFatMeasurement(finalDeltaPercent: finalDelta)
+                    },
+                    onFailSession: { reasonCode in
+                        store.failFatMeasurement(reasonCode: reasonCode)
+                    },
+                    onCancelSession: {
+                        store.cancelFatMeasurement()
+                    },
+                    onReturnToFeature: {
+                        store.returnToFeature()
+                    },
+                    onReturnHome: {
+                        store.returnHome()
+                    }
+                )
             } else {
                 FeatureActionDestinationView(
                     context: context,
@@ -940,6 +972,149 @@ private struct OralMeasurementView: View {
                 Text(flowState.recoveryMessage ?? "Session canceled. No oral score was saved.")
                     .foregroundStyle(.secondary)
                 Button("Restart Oral Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Button("Return To \(context.feature.title)") {
+                onReturnToFeature()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Return To Home") {
+                onReturnHome()
+            }
+            .buttonStyle(.bordered)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct FatMeasurementView: View {
+    let context: SelectedFeatureContext
+    let flowState: FatMeasurementFlowState
+    let onStartSession: () -> Void
+    let onBaselineLocked: () -> Void
+    let onRecordNextReading: (Int) -> Void
+    let onRequestFinish: () -> Void
+    let onReceiveFinalSummary: (Int) -> Void
+    let onFailSession: (String) -> Void
+    let onCancelSession: () -> Void
+    let onReturnToFeature: () -> Void
+    let onReturnHome: () -> Void
+
+    var body: some View {
+        let nextSuggestedDelta = min((flowState.bestDeltaPercent ?? 0) + 4, 24)
+
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Fat-burning measurement")
+                .font(.title3.bold())
+
+            Text("Guide a repeated-reading fat session with baseline lock, current delta updates, best-delta tracking, and a final summary that keeps latest and best values separate.")
+                .foregroundStyle(.secondary)
+
+            Text("Selected feature: \(context.feature.title)")
+            Text("Return route ID: \(context.lastVisitedRouteID)")
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            Text("Target +\(flowState.targetDeltaPercent)%")
+                .font(.headline)
+            Text(
+                flowState.baselineLocked
+                    ? "\(flowState.readingCount) valid readings captured. Current delta \(flowState.currentDeltaPercent ?? 0)% • Best delta \(flowState.bestDeltaPercent ?? 0)%."
+                    : "Coaching starts with breath, hold, and blow guidance before the first valid baseline reading locks at 0%."
+            )
+            .foregroundStyle(.secondary)
+
+            switch flowState.step {
+            case .preparing:
+                Text("Start the repeated-reading coaching flow and keep the device steady for baseline lock.")
+                    .foregroundStyle(.secondary)
+                Button("Start Fat-Burning Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            case .coaching:
+                Text("Coach the user through breath, hold, and blow. The first valid reading locks the session baseline at 0%.")
+                    .foregroundStyle(.secondary)
+                Button("Baseline Locked") {
+                    onBaselineLocked()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Invalid Coaching Sample") {
+                    onFailSession("invalid_sample")
+                }
+                .buttonStyle(.bordered)
+            case .reading:
+                Text("Track the current delta separately from the best delta. Later readings must not overwrite a stronger earlier delta.")
+                    .foregroundStyle(.secondary)
+                Text("Current delta: +\(flowState.currentDeltaPercent ?? 0)%")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                Text("Best delta: +\(flowState.bestDeltaPercent ?? 0)%")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                Button("Record Next Reading (+\(nextSuggestedDelta)%)") {
+                    onRecordNextReading(nextSuggestedDelta)
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Finish Session") {
+                    onRequestFinish()
+                }
+                .buttonStyle(.bordered)
+                Button("Invalid Sample") {
+                    onFailSession("invalid_sample")
+                }
+                .buttonStyle(.bordered)
+                Button("Cancel Session") {
+                    onCancelSession()
+                }
+                .buttonStyle(.bordered)
+            case .finishPending:
+                let bestDelta = flowState.bestDeltaPercent ?? 0
+                let finalDelta = max(bestDelta - 3, 4)
+                Text("Finish is requested. Wait for the device-generated final summary before showing a completed result.")
+                    .foregroundStyle(.secondary)
+                Text("Best delta so far: +\(bestDelta)%")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                Button("Receive Final Summary (+\(finalDelta)%)") {
+                    onReceiveFinalSummary(finalDelta)
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Disconnect Before Summary") {
+                    onFailSession("disconnect")
+                }
+                .buttonStyle(.bordered)
+            case .complete:
+                Text(flowState.latestResult?.finalDeltaLabel ?? "Final Fat Burn Delta unavailable")
+                    .font(.title3.bold())
+                Text(flowState.latestResult?.bestDeltaLabel ?? "Best Fat Burn Delta unavailable")
+                    .foregroundStyle(.secondary)
+                Text(flowState.latestResult?.progressLabel ?? "\(flowState.readingCount) valid readings")
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                Text(flowState.latestResult?.goalStatusLabel ?? "Session summary ready.")
+                    .foregroundStyle(.secondary)
+                Button("Start Another Fat Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            case .failed:
+                Text(flowState.recoveryMessage ?? "This fat-burning session did not complete. Retry without saving a result.")
+                    .foregroundStyle(.secondary)
+                Button("Retry Fat Session") {
+                    onStartSession()
+                }
+                .buttonStyle(.borderedProminent)
+            case .canceled:
+                Text(flowState.recoveryMessage ?? "Session canceled. No fat-burning summary was saved.")
+                    .foregroundStyle(.secondary)
+                Button("Restart Fat Session") {
                     onStartSession()
                 }
                 .buttonStyle(.borderedProminent)

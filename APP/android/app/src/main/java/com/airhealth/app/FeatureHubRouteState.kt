@@ -66,6 +66,8 @@ class FeatureHubRouteState(
         private set
     var oralMeasurementFlowState: OralMeasurementFlowState = OralMeasurementFlowState()
         private set
+    var fatMeasurementFlowState: FatMeasurementFlowState = FatMeasurementFlowState()
+        private set
     var sessionHistoryStoreState: SessionHistoryStoreState = SessionHistoryStoreState()
         private set
     var sessionSyncQueueState: SessionSyncQueueState = SessionSyncQueueState()
@@ -163,6 +165,9 @@ class FeatureHubRouteState(
         actionLockState = actionLockState.clearBlockedAttempt()
         if (feature != FeatureKind.ORAL_HEALTH) {
             oralMeasurementFlowState = OralMeasurementFlowState()
+        }
+        if (feature != FeatureKind.FAT_BURNING) {
+            fatMeasurementFlowState = FatMeasurementFlowState()
         }
         route = FeatureHubRoute.Feature(
             SelectedFeatureContext(
@@ -400,6 +405,7 @@ class FeatureHubRouteState(
             else -> actionLockState.clearBlockedAttempt()
         }
         oralMeasurementFlowState = OralMeasurementFlowState()
+        fatMeasurementFlowState = FatMeasurementFlowState()
         route = FeatureHubRoute.Home
     }
 
@@ -441,6 +447,60 @@ class FeatureHubRouteState(
     fun cancelOralMeasurement() {
         oralMeasurementFlowState = OralMeasurementFlowCoordinator.cancel(
             state = oralMeasurementFlowState,
+        )
+    }
+
+    fun startFatMeasurement() {
+        val currentContext = currentFeatureContext() ?: return
+        if (currentContext.feature != FeatureKind.FAT_BURNING) return
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.start(
+            state = fatMeasurementFlowState,
+            sessionId = nextMeasurementSessionId(currentContext.feature),
+        )
+    }
+
+    fun lockFatBaseline() {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.completeCoachingWithFirstReading(
+            state = fatMeasurementFlowState,
+            deltaPercent = 0,
+        )
+    }
+
+    fun recordNextFatReading(deltaPercent: Int) {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.recordReading(
+            state = fatMeasurementFlowState,
+            deltaPercent = deltaPercent,
+        )
+    }
+
+    fun requestFatFinish() {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.requestFinish(
+            state = fatMeasurementFlowState,
+        )
+    }
+
+    fun completeFatMeasurement(finalDeltaPercent: Int) {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.complete(
+            state = fatMeasurementFlowState,
+            finalDeltaPercent = finalDeltaPercent,
+        )
+    }
+
+    fun failFatMeasurement(reasonCode: String) {
+        val message = when (reasonCode) {
+            "disconnect" -> "The device disconnected before the final summary arrived. Retry without saving a session result."
+            else -> "The reading was not valid. Retry without saving a result."
+        }
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.fail(
+            state = fatMeasurementFlowState,
+            reasonCode = reasonCode,
+            recoveryMessage = message,
+        )
+    }
+
+    fun cancelFatMeasurement() {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.cancel(
+            state = fatMeasurementFlowState,
         )
     }
 

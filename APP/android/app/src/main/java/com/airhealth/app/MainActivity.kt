@@ -395,6 +395,9 @@ class MainActivity : AppCompatActivity() {
         if (action == FeatureAction.MEASURE && context.feature == FeatureKind.ORAL_HEALTH) {
             return buildOralMeasurementActionView(context)
         }
+        if (action == FeatureAction.MEASURE && context.feature == FeatureKind.FAT_BURNING) {
+            return buildFatMeasurementActionView(context)
+        }
 
         title = action.title
         val entitlement = routeState.effectiveEntitlement
@@ -555,6 +558,157 @@ class MainActivity : AppCompatActivity() {
                     addView(
                         actionButton("Restart Oral Session") {
                             routeState.startOralMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+            }
+
+            addView(
+                actionButton("Return To ${context.feature.title}") {
+                    routeState.returnToFeature()
+                    renderRoute()
+                },
+            )
+            addView(
+                secondaryButton("Return To Home") {
+                    routeState.returnHome()
+                    renderRoute()
+                },
+            )
+        }
+    }
+
+    private fun buildFatMeasurementActionView(context: SelectedFeatureContext): View {
+        title = FeatureAction.MEASURE.title
+        val flowState = routeState.fatMeasurementFlowState
+        val nextSuggestedDelta = ((flowState.bestDeltaPercent ?: 0) + 4).coerceAtMost(24)
+
+        return verticalLayout().apply {
+            addView(headline("Fat-burning measurement"))
+            addView(
+                bodyCopy(
+                    "Guide a repeated-reading fat session with baseline lock, current delta updates, best-delta tracking, and a final summary that keeps latest and best values separate.",
+                ),
+            )
+            addView(bodyCopy("Selected feature: ${context.feature.title}"))
+            addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
+            addView(headline("Target +${flowState.targetDeltaPercent}%"))
+            addView(
+                bodyCopy(
+                    if (flowState.baselineLocked) {
+                        "${flowState.readingCount} valid readings captured. Current delta ${flowState.currentDeltaPercent ?: 0}% • Best delta ${flowState.bestDeltaPercent ?: 0}%."
+                    } else {
+                        "Coaching starts with breath, hold, and blow guidance before the first valid baseline reading locks at 0%."
+                    },
+                ),
+            )
+
+            when (flowState.step) {
+                FatMeasurementFlowStep.PREPARING -> {
+                    addView(bodyCopy("Start the repeated-reading coaching flow and keep the device steady for baseline lock."))
+                    addView(
+                        actionButton("Start Fat-Burning Session") {
+                            routeState.startFatMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                FatMeasurementFlowStep.COACHING -> {
+                    addView(bodyCopy("Coach the user through breath, hold, and blow. The first valid reading locks the session baseline at 0%."))
+                    addView(
+                        actionButton("Baseline Locked") {
+                            routeState.lockFatBaseline()
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Invalid Coaching Sample") {
+                            routeState.failFatMeasurement("invalid_sample")
+                            renderRoute()
+                        },
+                    )
+                }
+
+                FatMeasurementFlowStep.READING -> {
+                    addView(bodyCopy("Track the current delta separately from the best delta. Later readings must not overwrite a stronger earlier delta."))
+                    addView(caption("Current delta: +${flowState.currentDeltaPercent ?: 0}%"))
+                    addView(caption("Best delta: +${flowState.bestDeltaPercent ?: 0}%"))
+                    addView(
+                        actionButton("Record Next Reading (+$nextSuggestedDelta%)") {
+                            routeState.recordNextFatReading(nextSuggestedDelta)
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Finish Session") {
+                            routeState.requestFatFinish()
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Invalid Sample") {
+                            routeState.failFatMeasurement("invalid_sample")
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Cancel Session") {
+                            routeState.cancelFatMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                FatMeasurementFlowStep.FINISH_PENDING -> {
+                    val bestDelta = flowState.bestDeltaPercent ?: 0
+                    val finalDelta = (bestDelta - 3).coerceAtLeast(4)
+                    addView(bodyCopy("Finish is requested. Wait for the device-generated final summary before showing a completed result."))
+                    addView(caption("Best delta so far: +$bestDelta%"))
+                    addView(
+                        actionButton("Receive Final Summary (+$finalDelta%)") {
+                            routeState.completeFatMeasurement(finalDelta)
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Disconnect Before Summary") {
+                            routeState.failFatMeasurement("disconnect")
+                            renderRoute()
+                        },
+                    )
+                }
+
+                FatMeasurementFlowStep.COMPLETE -> {
+                    val result = flowState.latestResult
+                    addView(headline(result?.finalDeltaLabel ?: "Final Fat Burn Delta unavailable"))
+                    addView(bodyCopy(result?.bestDeltaLabel ?: "Best Fat Burn Delta unavailable"))
+                    addView(caption(result?.progressLabel ?: "${flowState.readingCount} valid readings"))
+                    addView(bodyCopy(result?.goalStatusLabel ?: "Session summary ready."))
+                    addView(
+                        actionButton("Start Another Fat Session") {
+                            routeState.startFatMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                FatMeasurementFlowStep.FAILED -> {
+                    addView(bodyCopy(flowState.recoveryMessage ?: "This fat-burning session did not complete. Retry without saving a result."))
+                    addView(
+                        actionButton("Retry Fat Session") {
+                            routeState.startFatMeasurement()
+                            renderRoute()
+                        },
+                    )
+                }
+
+                FatMeasurementFlowStep.CANCELED -> {
+                    addView(bodyCopy(flowState.recoveryMessage ?: "Session canceled. No fat-burning summary was saved."))
+                    addView(
+                        actionButton("Restart Fat Session") {
+                            routeState.startFatMeasurement()
                             renderRoute()
                         },
                     )
