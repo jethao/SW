@@ -245,11 +245,13 @@ class FeatureHubRouteState(
         route = FeatureHubRoute.Setup(PairingFlowState.discovering())
     }
 
-    fun discoverDevice() {
+    fun discoverDevice(
+        device: DiscoveredDeviceSummary = PairingFlowState.defaultDevice(),
+    ) {
         route = FeatureHubRoute.Setup(
             PairingFlowState(
                 step = PairingStep.DEVICE_DISCOVERED,
-                discoveredDevice = PairingFlowState.defaultDevice(),
+                discoveredDevice = device,
             ),
         )
     }
@@ -265,24 +267,48 @@ class FeatureHubRouteState(
         )
     }
 
-    fun markDeviceIncompatible() {
+    fun inspectConnectingDevice() {
+        val currentRoute = route as? FeatureHubRoute.Setup ?: return
+        val device = currentRoute.pairingState.discoveredDevice ?: return
+        when {
+            device.isFactoryOnlyFamily() -> {
+                markDeviceIncompatible(
+                    recoveryMessage = "This device firmware is not supported in the AirHealth consumer app. Try another AirHealth device or update to consumer-ready firmware.",
+                )
+            }
+
+            device.hasUnauthorizedInternalState() -> {
+                markDeviceNotReady(
+                    recoveryMessage = "This device is not ready for consumer setup yet. Reset it to a standard consumer state and try again.",
+                )
+            }
+
+            else -> confirmDeviceConnection()
+        }
+    }
+
+    fun markDeviceIncompatible(
+        recoveryMessage: String = "This device is not supported in the AirHealth consumer app. Try another AirHealth device or check for an app update.",
+    ) {
         val currentRoute = route as? FeatureHubRoute.Setup ?: return
         pairingRecoveryAnalytics.record(PairingStep.INCOMPATIBLE, PairingRecoveryAction.SURFACED)
         route = FeatureHubRoute.Setup(
             currentRoute.pairingState.copy(
                 step = PairingStep.INCOMPATIBLE,
-                recoveryMessage = "This device is not supported in the AirHealth consumer app. Try another AirHealth device or check for an app update.",
+                recoveryMessage = recoveryMessage,
             ),
         )
     }
 
-    fun markDeviceNotReady() {
+    fun markDeviceNotReady(
+        recoveryMessage: String = "This device is not ready for setup yet. Keep it nearby, charge it if needed, and try again in a moment.",
+    ) {
         val currentRoute = route as? FeatureHubRoute.Setup ?: return
         pairingRecoveryAnalytics.record(PairingStep.NOT_READY, PairingRecoveryAction.SURFACED)
         route = FeatureHubRoute.Setup(
             currentRoute.pairingState.copy(
                 step = PairingStep.NOT_READY,
-                recoveryMessage = "This device is not ready for setup yet. Keep it nearby, charge it if needed, and try again in a moment.",
+                recoveryMessage = recoveryMessage,
             ),
         )
     }

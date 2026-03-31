@@ -107,4 +107,38 @@ class PairingFlowStateTest {
         routeState.exitSetup()
         assertEquals(FeatureHubRoute.Home, routeState.route)
     }
+
+    @Test
+    fun factoryOnlyFirmwareIsRejectedWithoutLeakingInternalProtocolDetails() {
+        val routeState = FeatureHubRouteState()
+
+        routeState.openSetup()
+        routeState.grantBluetoothPermission()
+        routeState.discoverDevice(PairingFlowState.factoryOnlyDevice())
+        routeState.connectDiscoveredDevice()
+        routeState.inspectConnectingDevice()
+
+        val route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.INCOMPATIBLE, route.pairingState.step)
+        assertTrue(route.pairingState.recoveryMessage?.contains("consumer app") == true)
+        assertTrue(route.pairingState.recoveryMessage?.contains("factory", ignoreCase = true) == false)
+        assertEquals("Restricted", route.pairingState.discoveredDevice?.consumerFacingProtocolLabel())
+    }
+
+    @Test
+    fun unauthorizedInternalStateFallsBackToConsumerSafeNotReadyFlow() {
+        val routeState = FeatureHubRouteState()
+
+        routeState.openSetup()
+        routeState.grantBluetoothPermission()
+        routeState.discoverDevice(PairingFlowState.unauthorizedInternalStateDevice())
+        routeState.connectDiscoveredDevice()
+        routeState.inspectConnectingDevice()
+
+        val route = routeState.route as FeatureHubRoute.Setup
+        assertEquals(PairingStep.NOT_READY, route.pairingState.step)
+        assertTrue(route.pairingState.recoveryMessage?.contains("consumer setup") == true)
+        assertTrue(route.pairingState.recoveryMessage?.contains("service_hold") == false)
+        assertEquals("Restricted", route.pairingState.discoveredDevice?.consumerFacingProtocolLabel())
+    }
 }

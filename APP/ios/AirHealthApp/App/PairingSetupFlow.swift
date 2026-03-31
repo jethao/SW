@@ -48,10 +48,49 @@ enum SetupMode: String, CaseIterable {
     }
 }
 
+enum DeviceProtocolFamily {
+    case consumer
+    case factoryOnly
+    case unauthorizedInternal
+}
+
 struct DiscoveredDeviceSummary {
     let name: String
     let protocolVersion: String
     let signalLabel: String
+    let protocolFamily: DeviceProtocolFamily
+    let internalStateCode: String?
+
+    init(
+        name: String,
+        protocolVersion: String,
+        signalLabel: String,
+        protocolFamily: DeviceProtocolFamily = .consumer,
+        internalStateCode: String? = nil
+    ) {
+        self.name = name
+        self.protocolVersion = protocolVersion
+        self.signalLabel = signalLabel
+        self.protocolFamily = protocolFamily
+        self.internalStateCode = internalStateCode
+    }
+
+    func consumerFacingProtocolLabel() -> String {
+        switch protocolFamily {
+        case .consumer:
+            return protocolVersion
+        case .factoryOnly, .unauthorizedInternal:
+            return "Restricted"
+        }
+    }
+
+    func isFactoryOnlyFamily() -> Bool {
+        protocolFamily == .factoryOnly
+    }
+
+    func hasUnauthorizedInternalState() -> Bool {
+        protocolFamily == .unauthorizedInternal || internalStateCode != nil
+    }
 }
 
 struct PairingFlowState {
@@ -74,6 +113,25 @@ struct PairingFlowState {
             name: "AirHealth Breath Sensor",
             protocolVersion: "consumer-v2",
             signalLabel: "Strong"
+        )
+    }
+
+    static func factoryOnlyDevice() -> DiscoveredDeviceSummary {
+        DiscoveredDeviceSummary(
+            name: "AirHealth Service Sensor",
+            protocolVersion: "factory-v1",
+            signalLabel: "Strong",
+            protocolFamily: .factoryOnly
+        )
+    }
+
+    static func unauthorizedInternalStateDevice() -> DiscoveredDeviceSummary {
+        DiscoveredDeviceSummary(
+            name: "AirHealth Breath Sensor",
+            protocolVersion: "consumer-v2",
+            signalLabel: "Strong",
+            protocolFamily: .unauthorizedInternal,
+            internalStateCode: "service_hold"
         )
     }
 }
