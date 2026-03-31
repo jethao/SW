@@ -180,6 +180,7 @@ final class AppShellStore: ObservableObject {
     @Published private(set) var goalCacheState = GoalCacheState()
     @Published private(set) var suggestionCacheState = SuggestionCacheState()
     @Published private(set) var oralMeasurementFlowState = OralMeasurementFlowState()
+    @Published private(set) var fatMeasurementFlowState = FatMeasurementFlowState()
     @Published private(set) var sessionHistoryStoreState = SessionHistoryStoreState()
     @Published private(set) var sessionSyncQueueState = SessionSyncQueueState()
     @Published private(set) var exportAuditStoreState = ExportAuditStoreState()
@@ -390,6 +391,9 @@ final class AppShellStore: ObservableObject {
         actionLockState = nextLockState
         if feature != .oralHealth {
             oralMeasurementFlowState = OralMeasurementFlowState()
+        }
+        if feature != .fatBurning {
+            fatMeasurementFlowState = FatMeasurementFlowState()
         }
         route = .featureHub(
             SelectedFeatureContext(
@@ -733,6 +737,7 @@ final class AppShellStore: ObservableObject {
         actionLockState = nextLockState
 
         oralMeasurementFlowState = OralMeasurementFlowState()
+        fatMeasurementFlowState = FatMeasurementFlowState()
         route = .home
     }
 
@@ -777,6 +782,67 @@ final class AppShellStore: ObservableObject {
     func cancelOralMeasurement() {
         oralMeasurementFlowState = OralMeasurementFlowCoordinator.cancel(
             state: oralMeasurementFlowState
+        )
+    }
+
+    func startFatMeasurement() {
+        guard let context = currentFeatureContext(),
+              context.feature == .fatBurning else {
+            return
+        }
+
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.start(
+            state: fatMeasurementFlowState,
+            sessionID: nextMeasurementSessionID(feature: context.feature)
+        )
+    }
+
+    func lockFatBaseline() {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.completeCoachingWithFirstReading(
+            state: fatMeasurementFlowState,
+            deltaPercent: 0
+        )
+    }
+
+    func recordNextFatReading(deltaPercent: Int) {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.recordReading(
+            state: fatMeasurementFlowState,
+            deltaPercent: deltaPercent
+        )
+    }
+
+    func requestFatFinish() {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.requestFinish(
+            state: fatMeasurementFlowState
+        )
+    }
+
+    func completeFatMeasurement(finalDeltaPercent: Int) {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.complete(
+            state: fatMeasurementFlowState,
+            finalDeltaPercent: finalDeltaPercent
+        )
+    }
+
+    func failFatMeasurement(reasonCode: String) {
+        let message: String
+        switch reasonCode {
+        case "disconnect":
+            message = "The device disconnected before the final summary arrived. Retry without saving a session result."
+        default:
+            message = "The reading was not valid. Retry without saving a result."
+        }
+
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.fail(
+            state: fatMeasurementFlowState,
+            reasonCode: reasonCode,
+            recoveryMessage: message
+        )
+    }
+
+    func cancelFatMeasurement() {
+        fatMeasurementFlowState = FatMeasurementFlowCoordinator.cancel(
+            state: fatMeasurementFlowState
         )
     }
 
