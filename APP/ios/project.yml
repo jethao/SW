@@ -1,0 +1,43 @@
+name: AirHealthApp
+
+options:
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.1.0"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_CFBundleDisplayName: AirHealth
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    PRODUCT_BUNDLE_IDENTIFIER: com.airhealth.app
+  configs:
+    Debug:
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+    Release:
+      CODE_SIGN_STYLE: Automatic
+
+targets:
+  AirHealthApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: AirHealthApp/App
+    settings:
+      base:
+        PRODUCT_NAME: AirHealthApp
+
+schemes:
+  AirHealthApp:
+    build:
+      targets:
+        AirHealthApp: all
+    run:
+      config: Debug
+    archive:
+      config: Release

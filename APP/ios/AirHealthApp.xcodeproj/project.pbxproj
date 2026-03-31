@@ -1,0 +1,363 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05C65FCA72076D91ED3A1DC7 /* MeasurementSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C5003F5211A35B97EE8249 /* MeasurementSessionCoordinator.swift */; };
+		2F3646370A23B6B83D325464 /* SessionSyncQueueState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FD507B0242BEE8B36055C9 /* SessionSyncQueueState.swift */; };
+		3F059E266AA83BF89819E81B /* HistoryViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D5E406789314F39E361B37 /* HistoryViewState.swift */; };
+		44935E663F3162C27C65086A /* FatMeasurementFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC32C77EC51DBC982537F763 /* FatMeasurementFlow.swift */; };
+		45716C316E2E52DFE0D43EDF /* SuggestionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5349A2AEFE77884299FC0A6 /* SuggestionState.swift */; };
+		4DFBA62B7CFFA142B5283D4B /* OralMeasurementFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD6C403BA29945BF4536AED /* OralMeasurementFlow.swift */; };
+		4E2732456F8EAA5F76BD1846 /* MeasurementRecoveryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062EC51AFF98B9976C635A15 /* MeasurementRecoveryState.swift */; };
+		54BFA53A0FF2CA1F0F838F39 /* AppShellStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DF070FE7FC260837DCC81DB /* AppShellStore.swift */; };
+		7B2A384FA04AFFF5CF5158C5 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99F0422D781043CF89C175 /* AppShellView.swift */; };
+		86A0307861F7CCAFBCAD8A4D /* HealthExportState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A959CFA8D9A629E5D2E436 /* HealthExportState.swift */; };
+		A587F04751C2A697066EF5DE /* PairingSetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B55011A3D505A8FDD60BE7 /* PairingSetupFlow.swift */; };
+		AF7F3E6019FA3AD2EB417536 /* SessionHistoryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC624451F7AD7E07A2EE8739 /* SessionHistoryState.swift */; };
+		B06B36DF8A5CBD4DA8FE3B1A /* EntitlementState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428FCA6765F34CE3FD5118FE /* EntitlementState.swift */; };
+		DB8ACCB768A447CADB88BDB8 /* AirHealthApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A5741720478A11818881B5 /* AirHealthApp.swift */; };
+		EEFA33DD81D10B07158DB5C7 /* ConsultDirectoryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B838949B7F0C156667C75E45 /* ConsultDirectoryState.swift */; };
+		F1DE2D4AF9369EC31C382569 /* GoalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5B70041669449F7D4BD2B73 /* GoalState.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		062EC51AFF98B9976C635A15 /* MeasurementRecoveryState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRecoveryState.swift; sourceTree = "<group>"; };
+		07A959CFA8D9A629E5D2E436 /* HealthExportState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthExportState.swift; sourceTree = "<group>"; };
+		0DD6C403BA29945BF4536AED /* OralMeasurementFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OralMeasurementFlow.swift; sourceTree = "<group>"; };
+		2DF070FE7FC260837DCC81DB /* AppShellStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellStore.swift; sourceTree = "<group>"; };
+		428FCA6765F34CE3FD5118FE /* EntitlementState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementState.swift; sourceTree = "<group>"; };
+		58FD507B0242BEE8B36055C9 /* SessionSyncQueueState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSyncQueueState.swift; sourceTree = "<group>"; };
+		9980BBBF54FA122729F2E689 /* AirHealthApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AirHealthApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1A5741720478A11818881B5 /* AirHealthApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirHealthApp.swift; sourceTree = "<group>"; };
+		A5349A2AEFE77884299FC0A6 /* SuggestionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionState.swift; sourceTree = "<group>"; };
+		B2D5E406789314F39E361B37 /* HistoryViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewState.swift; sourceTree = "<group>"; };
+		B838949B7F0C156667C75E45 /* ConsultDirectoryState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsultDirectoryState.swift; sourceTree = "<group>"; };
+		BC624451F7AD7E07A2EE8739 /* SessionHistoryState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryState.swift; sourceTree = "<group>"; };
+		C2C5003F5211A35B97EE8249 /* MeasurementSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementSessionCoordinator.swift; sourceTree = "<group>"; };
+		CC32C77EC51DBC982537F763 /* FatMeasurementFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FatMeasurementFlow.swift; sourceTree = "<group>"; };
+		D7B55011A3D505A8FDD60BE7 /* PairingSetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingSetupFlow.swift; sourceTree = "<group>"; };
+		F5B70041669449F7D4BD2B73 /* GoalState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalState.swift; sourceTree = "<group>"; };
+		FD99F0422D781043CF89C175 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		551AE654ED45960A8E91372D = {
+			isa = PBXGroup;
+			children = (
+				7757B1285B73E5B4AC0D81D8 /* AirHealthApp */,
+				9B8025AA38397B1A85D176D0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7757B1285B73E5B4AC0D81D8 /* AirHealthApp */ = {
+			isa = PBXGroup;
+			children = (
+				9F39170B66EC4BD2DE042E2E /* App */,
+			);
+			path = AirHealthApp;
+			sourceTree = "<group>";
+		};
+		9B8025AA38397B1A85D176D0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9980BBBF54FA122729F2E689 /* AirHealthApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9F39170B66EC4BD2DE042E2E /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A1A5741720478A11818881B5 /* AirHealthApp.swift */,
+				2DF070FE7FC260837DCC81DB /* AppShellStore.swift */,
+				FD99F0422D781043CF89C175 /* AppShellView.swift */,
+				B838949B7F0C156667C75E45 /* ConsultDirectoryState.swift */,
+				428FCA6765F34CE3FD5118FE /* EntitlementState.swift */,
+				CC32C77EC51DBC982537F763 /* FatMeasurementFlow.swift */,
+				F5B70041669449F7D4BD2B73 /* GoalState.swift */,
+				07A959CFA8D9A629E5D2E436 /* HealthExportState.swift */,
+				B2D5E406789314F39E361B37 /* HistoryViewState.swift */,
+				062EC51AFF98B9976C635A15 /* MeasurementRecoveryState.swift */,
+				C2C5003F5211A35B97EE8249 /* MeasurementSessionCoordinator.swift */,
+				0DD6C403BA29945BF4536AED /* OralMeasurementFlow.swift */,
+				D7B55011A3D505A8FDD60BE7 /* PairingSetupFlow.swift */,
+				BC624451F7AD7E07A2EE8739 /* SessionHistoryState.swift */,
+				58FD507B0242BEE8B36055C9 /* SessionSyncQueueState.swift */,
+				A5349A2AEFE77884299FC0A6 /* SuggestionState.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AD94E8D677CD386AA090628E /* AirHealthApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D7E7F471285FC61B2FCCFBBC /* Build configuration list for PBXNativeTarget "AirHealthApp" */;
+			buildPhases = (
+				74A54E931035409DD8BF2A67 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AirHealthApp;
+			packageProductDependencies = (
+			);
+			productName = AirHealthApp;
+			productReference = 9980BBBF54FA122729F2E689 /* AirHealthApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		249C229C038975C4376C5CB8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = B127F0DF84CD960E8CDAFA6D /* Build configuration list for PBXProject "AirHealthApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 551AE654ED45960A8E91372D;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9B8025AA38397B1A85D176D0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AD94E8D677CD386AA090628E /* AirHealthApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		74A54E931035409DD8BF2A67 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DB8ACCB768A447CADB88BDB8 /* AirHealthApp.swift in Sources */,
+				54BFA53A0FF2CA1F0F838F39 /* AppShellStore.swift in Sources */,
+				7B2A384FA04AFFF5CF5158C5 /* AppShellView.swift in Sources */,
+				EEFA33DD81D10B07158DB5C7 /* ConsultDirectoryState.swift in Sources */,
+				B06B36DF8A5CBD4DA8FE3B1A /* EntitlementState.swift in Sources */,
+				44935E663F3162C27C65086A /* FatMeasurementFlow.swift in Sources */,
+				F1DE2D4AF9369EC31C382569 /* GoalState.swift in Sources */,
+				86A0307861F7CCAFBCAD8A4D /* HealthExportState.swift in Sources */,
+				3F059E266AA83BF89819E81B /* HistoryViewState.swift in Sources */,
+				4E2732456F8EAA5F76BD1846 /* MeasurementRecoveryState.swift in Sources */,
+				05C65FCA72076D91ED3A1DC7 /* MeasurementSessionCoordinator.swift in Sources */,
+				4DFBA62B7CFFA142B5283D4B /* OralMeasurementFlow.swift in Sources */,
+				A587F04751C2A697066EF5DE /* PairingSetupFlow.swift in Sources */,
+				AF7F3E6019FA3AD2EB417536 /* SessionHistoryState.swift in Sources */,
+				2F3646370A23B6B83D325464 /* SessionSyncQueueState.swift in Sources */,
+				45716C316E2E52DFE0D43EDF /* SuggestionState.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		236E152D36718B55D938E6EC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AirHealth;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.airhealth.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		68DC953294C4641DA94AD6D9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_NAME = AirHealthApp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B432C3BB001A262B4A4F6593 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_NAME = AirHealthApp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C17991277C810192F0198416 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AirHealth;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.airhealth.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B127F0DF84CD960E8CDAFA6D /* Build configuration list for PBXProject "AirHealthApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				236E152D36718B55D938E6EC /* Debug */,
+				C17991277C810192F0198416 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D7E7F471285FC61B2FCCFBBC /* Build configuration list for PBXNativeTarget "AirHealthApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				68DC953294C4641DA94AD6D9 /* Debug */,
+				B432C3BB001A262B4A4F6593 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 249C229C038975C4376C5CB8 /* Project object */;
+}
