@@ -123,4 +123,31 @@ class HealthExportStateTest {
 
         assertTrue(retriedPayload != null)
     }
+
+    @Test
+    fun exportPayloadRedactionGuardsAgainstInternalOnlyKeys() {
+        val record = PersistedSessionSummaryRecord(
+            sessionId = "fat-session-002",
+            feature = FeatureKind.FAT_BURNING,
+            resultToken = "factory-token-002",
+            recordedAtEpochMillis = 22_000L,
+            syncState = SessionSyncState.SYNCED,
+            summaryTitle = "Fat-burning session complete",
+            summaryDetail = "factory_mode=true hw-id=abc detected_voc_type=acetone",
+        )
+
+        val payload = HealthExportAdapter.payloadFor(
+            record = record,
+            platform = HealthExportPlatform.APPLE_HEALTH,
+        ).asWireMap()
+
+        assertTrue("result_token" !in payload.keys)
+        assertTrue("hw_id" !in payload.keys)
+        assertTrue("detected_voc_type" !in payload.keys)
+        assertTrue("factory_mode" !in payload.keys)
+        assertEquals(
+            "Saved fat-burning trend summary for later history review.",
+            payload["summary_detail"],
+        )
+    }
 }

@@ -54,7 +54,7 @@ fun SessionHistoryStoreState.oralHistorySurface(): OralHistorySurfaceState {
         OralHistoryViewItem(
             sessionId = record.sessionId,
             title = record.summaryTitle,
-            detail = record.summaryDetail,
+            detail = record.consumerSafeSummaryDetail(),
             syncLabel = record.syncState.displayLabel(),
             progressLabel = chronologicalProgressLabels.getValue(record.sessionId),
         )
@@ -94,7 +94,7 @@ fun SessionHistoryStoreState.fatHistorySurface(): FatHistorySurfaceState {
             record to FatHistoryViewItem(
                 sessionId = record.sessionId,
                 title = record.summaryTitle,
-                detail = record.summaryDetail,
+                detail = record.consumerSafeSummaryDetail(),
                 syncLabel = record.syncState.displayLabel(),
                 finalDeltaLabel = "Final delta +$finalDelta",
                 bestDeltaLabel = "Best delta +$runningBestDelta",

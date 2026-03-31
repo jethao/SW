@@ -122,6 +122,25 @@ class ActionGateAnalyticsTest {
     }
 
     @Test
+    fun analyticsPayloadsStayRedactedForConsumerChannels() {
+        val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
+        routeState.replaceEntitlementCacheState(activeEntitlementState())
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.openAction(FeatureAction.CONSULT_PROFESSIONALS)
+
+        val payload = routeState.actionGateAnalytics.events.last().payload()
+
+        assertTrue("session_id" !in payload.keys)
+        assertTrue("result_token" !in payload.keys)
+        assertTrue("hardware_id" !in payload.keys)
+        assertTrue("factory_mode" !in payload.keys)
+        assertTrue("manufacturing_log" !in payload.keys)
+        assertTrue("detected_voc_type" !in payload.keys)
+    }
+
+    @Test
     fun consultConflictAnalyticsStayExplicitAndConsumerSafe() {
         val routeState = FeatureHubRouteState(currentTimeMillis = { 1_000L })
         routeState.replaceEntitlementCacheState(activeEntitlementState())
