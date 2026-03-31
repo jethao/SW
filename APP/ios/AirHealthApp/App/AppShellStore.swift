@@ -431,7 +431,7 @@ final class AppShellStore: ObservableObject {
         route = .setup(
             PairingFlowState(
                 step: .deviceDiscovered,
-                discoveredDevice: .defaultDevice(),
+                discoveredDevice: PairingFlowState.defaultDevice(),
                 recoveryMessage: nil,
                 claimOwnerLabel: nil,
                 selectedMode: nil
