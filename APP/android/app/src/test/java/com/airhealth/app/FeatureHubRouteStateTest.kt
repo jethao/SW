@@ -239,4 +239,43 @@ class FeatureHubRouteStateTest {
             routeState.fatMeasurementFlowState.latestResult?.finalDeltaLabel,
         )
     }
+
+    @Test
+    fun reconnectReplayCanRecoverCompletedOralResultAfterDisconnect() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.ORAL_HEALTH)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.startOralMeasurement()
+        routeState.markOralWarmupPassed()
+        routeState.disconnectActiveMeasurement()
+
+        assertEquals(MeasurementRecoveryStage.INTERRUPTED, routeState.measurementRecoveryStateFor(FeatureKind.ORAL_HEALTH)?.stage)
+        assertEquals(MeasurementSessionPhase.PAUSED, routeState.oralMeasurementFlowState.activeSession?.phase)
+
+        routeState.beginReconnectReplay()
+        routeState.recoverMeasurementReplay()
+
+        assertEquals(MeasurementRecoveryStage.RECOVERED, routeState.measurementRecoveryStateFor(FeatureKind.ORAL_HEALTH)?.stage)
+        assertEquals(MeasurementSessionPhase.COMPLETE, routeState.oralMeasurementFlowState.activeSession?.phase)
+        assertTrue(routeState.oralMeasurementFlowState.recoveryMessage!!.contains("Recovered"))
+    }
+
+    @Test
+    fun replayFailureLeavesFatSessionFailedWithoutCompletedSummary() {
+        val routeState = activeRouteState()
+
+        routeState.openFeature(FeatureKind.FAT_BURNING)
+        routeState.openAction(FeatureAction.MEASURE)
+        routeState.startFatMeasurement()
+        routeState.lockFatBaseline()
+        routeState.disconnectActiveMeasurement()
+        routeState.beginReconnectReplay()
+        routeState.failMeasurementReplay()
+
+        assertEquals(MeasurementRecoveryStage.FAILED, routeState.measurementRecoveryStateFor(FeatureKind.FAT_BURNING)?.stage)
+        assertEquals(MeasurementSessionPhase.FAILED, routeState.fatMeasurementFlowState.activeSession?.phase)
+        assertEquals("replay_unavailable", routeState.fatMeasurementFlowState.activeSession?.failureReason)
+        assertNull(routeState.fatMeasurementFlowState.latestResult)
+    }
 }

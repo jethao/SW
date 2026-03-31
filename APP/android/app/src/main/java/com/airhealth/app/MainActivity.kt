@@ -467,6 +467,7 @@ class MainActivity : AppCompatActivity() {
     private fun buildOralMeasurementActionView(context: SelectedFeatureContext): View {
         title = FeatureAction.MEASURE.title
         val flowState = routeState.oralMeasurementFlowState
+        val recoveryState = routeState.measurementRecoveryStateFor(context.feature)
 
         return verticalLayout().apply {
             addView(headline("Oral measurement"))
@@ -479,6 +480,7 @@ class MainActivity : AppCompatActivity() {
             addView(caption("Return route ID: ${context.lastVisitedRouteId}"))
             addView(headline(flowState.baselineProgress.progressLabel))
             addView(bodyCopy(flowState.baselineProgress.detailLabel))
+            recoveryState?.let { addRecoveryCard(it) }
 
             when (flowState.step) {
                 OralMeasurementFlowStep.PREPARING -> {
@@ -518,6 +520,12 @@ class MainActivity : AppCompatActivity() {
                     addView(
                         secondaryButton("Invalid Sample") {
                             routeState.markOralInvalidSample()
+                            renderRoute()
+                        },
+                    )
+                    addView(
+                        secondaryButton("Simulate Disconnect") {
+                            routeState.disconnectActiveMeasurement()
                             renderRoute()
                         },
                     )
@@ -582,6 +590,7 @@ class MainActivity : AppCompatActivity() {
     private fun buildFatMeasurementActionView(context: SelectedFeatureContext): View {
         title = FeatureAction.MEASURE.title
         val flowState = routeState.fatMeasurementFlowState
+        val recoveryState = routeState.measurementRecoveryStateFor(context.feature)
         val nextSuggestedDelta = ((flowState.bestDeltaPercent ?: 0) + 4).coerceAtMost(24)
 
         return verticalLayout().apply {
@@ -603,6 +612,7 @@ class MainActivity : AppCompatActivity() {
                     },
                 ),
             )
+            recoveryState?.let { addRecoveryCard(it) }
 
             when (flowState.step) {
                 FatMeasurementFlowStep.PREPARING -> {
@@ -654,6 +664,12 @@ class MainActivity : AppCompatActivity() {
                         },
                     )
                     addView(
+                        secondaryButton("Simulate Disconnect") {
+                            routeState.disconnectActiveMeasurement()
+                            renderRoute()
+                        },
+                    )
+                    addView(
                         secondaryButton("Cancel Session") {
                             routeState.cancelFatMeasurement()
                             renderRoute()
@@ -674,7 +690,7 @@ class MainActivity : AppCompatActivity() {
                     )
                     addView(
                         secondaryButton("Disconnect Before Summary") {
-                            routeState.failFatMeasurement("disconnect")
+                            routeState.disconnectActiveMeasurement()
                             renderRoute()
                         },
                     )
@@ -1072,6 +1088,40 @@ class MainActivity : AppCompatActivity() {
     private fun LinearLayout.addEntitlementBanner(banner: EntitlementBannerState) {
         addView(headline(banner.title))
         addView(bodyCopy(banner.message))
+    }
+
+    private fun LinearLayout.addRecoveryCard(recoveryState: MeasurementRecoveryState) {
+        addView(headline("Recovery status"))
+        addView(bodyCopy(recoveryState.statusMessage))
+        addView(caption("Recovery stage: ${recoveryState.stage.name.lowercase()} • Session ${recoveryState.sessionId}"))
+        recoveryState.recoveredResultToken?.let { addView(caption("Recovered token: $it")) }
+        when (recoveryState.stage) {
+            MeasurementRecoveryStage.INTERRUPTED -> addView(
+                actionButton("Reconnect And Query Session") {
+                    routeState.beginReconnectReplay()
+                    renderRoute()
+                },
+            )
+
+            MeasurementRecoveryStage.RECONNECTING -> {
+                addView(
+                    actionButton("Replay Completed Result") {
+                        routeState.recoverMeasurementReplay()
+                        renderRoute()
+                    },
+                )
+                addView(
+                    secondaryButton("Replay Failed") {
+                        routeState.failMeasurementReplay()
+                        renderRoute()
+                    },
+                )
+            }
+
+            MeasurementRecoveryStage.RECOVERED,
+            MeasurementRecoveryStage.FAILED,
+            -> Unit
+        }
     }
 
     private fun headline(text: String): TextView {
