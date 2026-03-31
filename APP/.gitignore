@@ -3,8 +3,17 @@
 initialize.rpt
 manager.rpt
 artifacts/
+.gradle-app-tests/
 ios/Pods/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcworkspace/xcuserdata/
+ios/build/
+android/keystore.properties
+android/*.jks
+android/*.keystore
 android/.gradle/
+android/.kotlin/
 android/build/
 android/local.properties
 android/app/build/

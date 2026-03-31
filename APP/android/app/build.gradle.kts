@@ -1,7 +1,36 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+fun signingValue(propertyKey: String, envKey: String): String? {
+    val propertyValue = keystoreProperties.getProperty(propertyKey)?.trim().orEmpty()
+    if (propertyValue.isNotEmpty()) {
+        return propertyValue
+    }
+
+    val envValue = System.getenv(envKey)?.trim().orEmpty()
+    return envValue.ifEmpty { null }
+}
+
+val releaseStoreFile = signingValue("storeFile", "AIRHEALTH_ANDROID_KEYSTORE_PATH")
+val releaseStorePassword = signingValue("storePassword", "AIRHEALTH_ANDROID_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "AIRHEALTH_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "AIRHEALTH_ANDROID_KEY_PASSWORD")
+val hasAndroidReleaseSigning =
+    !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "com.airhealth.app"
@@ -17,6 +46,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasAndroidReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -24,6 +64,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
